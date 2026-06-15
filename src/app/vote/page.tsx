@@ -96,7 +96,7 @@ export default function VotePage() {
             image: c.vice_chairman_photo || "/placeholder.jpg",
           },
           vision: c.vision || "",
-          missions: c.mission ? c.mission.split("\n").filter(m => m.trim()) : [],
+          missions: c.mission ? c.mission.split("\n").filter((m: string) => m.trim()) : [],
         }));
         setCandidates(transformed);
       }
