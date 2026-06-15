@@ -111,7 +111,7 @@ export default function PemilihPage() {
 
     setGenerating(true);
     const count = parseInt(pinCount);
-    const tokensToInsert = [];
+    const tokensToInsert: Array<{ pin: string; class_id: number; is_used: boolean }> = [];
     const existingPins = tokens.map(t => t.pin);
 
     for (let i = 0; i < count; i++) {
