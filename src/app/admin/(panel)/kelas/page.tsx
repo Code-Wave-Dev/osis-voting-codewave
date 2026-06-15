@@ -167,34 +167,31 @@ export default function KelasPage() {
 
     setSaving(true);
 
-    const { count } = await supabase
-      .from("tokens")
-      .select("*", { count: "exact", head: true })
-      .eq("class_id", selectedClass.id);
+    try {
+      // 1. Hapus semua tokens yang terkait dengan kelas ini
+      const { error: tokensError } = await supabase
+        .from("tokens")
+        .delete()
+        .eq("class_id", selectedClass.id);
 
-    if (count && count > 0) {
-      const confirmed = confirm(
-        `Kelas ini memiliki ${count} token. Token akan ikut terhapus. Lanjutkan?`
-      );
-      if (!confirmed) {
-        setSaving(false);
-        return;
+      if (tokensError) {
+        console.error("Error menghapus tokens:", tokensError);
+        throw tokensError;
       }
 
-      await supabase.from("tokens").delete().eq("class_id", selectedClass.id);
-    }
+      // 2. Baru hapus kelas
+      const { error: classError } = await supabase
+        .from("classes")
+        .delete()
+        .eq("id", selectedClass.id);
 
-    const { error } = await supabase
-      .from("classes")
-      .delete()
-      .eq("id", selectedClass.id);
+      if (classError) throw classError;
 
-    if (!error) {
       await fetchClasses();
       setIsDeleteOpen(false);
       setSelectedClass(null);
-    } else {
-      alert("Gagal menghapus kelas: " + error.message);
+    } catch (err: any) {
+      alert("Gagal menghapus kelas: " + err.message);
     }
 
     setSaving(false);
