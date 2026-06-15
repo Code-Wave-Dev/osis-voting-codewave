@@ -79,13 +79,16 @@ export default function LoginPage() {
               </label>
  
               <InputOTP
-                maxLength={6}
-                value={pin}
-                onChange={(value) => setPin(value)}
-                disabled={isLoading}
-                id="otp-input"
-                name="otp-input"
-              >
+                  maxLength={6}
+                  value={pin}
+                  onChange={(value) => setPin(value)}
+                  disabled={isLoading}
+                  id="otp-input"
+                  name="otp-input"
+                  inputMode="text"
+                  pattern="[a-zA-Z0-9]*"
+                  autoCapitalize="characters"
+                >
                 <InputOTPGroup className="gap-2">
                   <InputOTPSlot
                     index={0}
