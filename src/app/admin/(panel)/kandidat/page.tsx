@@ -43,7 +43,6 @@ import {
   Upload,
   X,
   Users,
-  Minus,
 } from "lucide-react";
 import Image from "next/image";
 
@@ -84,7 +83,6 @@ export default function KandidatPage() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
 
-  // Form state
   const [formData, setFormData] = useState({
     order_number: "",
     chairman_name: "",
@@ -245,24 +243,28 @@ export default function KandidatPage() {
     setSaving(true);
 
     try {
+      // FIX: Preserve foto lama jika tidak ada foto baru
       let chairmanPhotoUrl = "";
       let vicePhotoUrl = "";
 
       if (chairmanPhoto) {
+        // Ada foto baru, upload
         const url = await uploadPhoto(chairmanPhoto, "chairman");
         if (url) chairmanPhotoUrl = url;
-      } else if (isEdit && selectedCandidate) {
+      } else if (isEdit && selectedCandidate?.chairman_photo) {
+        // Tidak ada foto baru, pakai foto lama
         chairmanPhotoUrl = selectedCandidate.chairman_photo;
       }
 
       if (vicePhoto) {
+        // Ada foto baru, upload
         const url = await uploadPhoto(vicePhoto, "vice");
         if (url) vicePhotoUrl = url;
-      } else if (isEdit && selectedCandidate) {
+      } else if (isEdit && selectedCandidate?.vice_chairman_photo) {
+        // Tidak ada foto baru, pakai foto lama
         vicePhotoUrl = selectedCandidate.vice_chairman_photo;
       }
 
-      // Gabungkan misi menjadi text dengan newline
       const missionText = missions.filter(m => m.trim()).join("\n");
 
       const candidateData = {
@@ -306,7 +308,7 @@ export default function KandidatPage() {
     setSaving(true);
 
     try {
-      // 1. Hapus semua votes yang terkait dengan kandidat ini
+      // FIX: Hapus votes dulu sebelum hapus kandidat
       const { error: votesError } = await supabase
         .from("votes")
         .delete()
@@ -317,7 +319,7 @@ export default function KandidatPage() {
         throw votesError;
       }
 
-      // 2. Hapus foto dari storage (jika ada)
+      // Hapus foto dari storage
       if (selectedCandidate.chairman_photo?.includes("candidates")) {
         const path = selectedCandidate.chairman_photo.split("/candidates/")[1];
         if (path) {
@@ -331,7 +333,7 @@ export default function KandidatPage() {
         }
       }
 
-      // 3. Baru hapus kandidat
+      // Baru hapus kandidat
       const { error: candidateError } = await supabase
         .from("candidates")
         .delete()
@@ -366,7 +368,7 @@ export default function KandidatPage() {
       vice_chairman_class_id: candidate.vice_chairman_class_id?.toString() || "",
       vision: candidate.vision || "",
     });
-    setMissions(candidate.mission ? candidate.mission.split("\n").filter(m => m.trim()) : [""]);
+    setMissions(candidate.mission ? candidate.mission.split("\n").filter((m: string) => m.trim()) : [""]);
     setChairmanPhotoPreview(candidate.chairman_photo || "");
     setVicePhotoPreview(candidate.vice_chairman_photo || "");
     setChairmanPhoto(null);
@@ -440,7 +442,6 @@ export default function KandidatPage() {
       {/* Table Card */}
       <Card>
         <CardContent className="p-6">
-          {/* Search Bar */}
           <div className="relative mb-6">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
             <Input
@@ -451,7 +452,6 @@ export default function KandidatPage() {
             />
           </div>
 
-          {/* Table */}
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -483,7 +483,7 @@ export default function KandidatPage() {
                 ) : (
                   filteredCandidates.map((candidate) => {
                     const missionCount = candidate.mission
-                      ? candidate.mission.split("\n").filter(m => m.trim()).length
+                      ? candidate.mission.split("\n").filter((m: string) => m.trim()).length
                       : 0;
 
                     return (
@@ -498,23 +498,23 @@ export default function KandidatPage() {
                         </td>
                         <td className="py-4 px-4">
                           <div className="space-y-3">
-                            {/* Ketua */}
                             <div className="flex items-center gap-3">
-                            <div className="relative w-12 h-12 rounded-full overflow-hidden bg-slate-200 shrink-0">
+                              <div className="relative w-12 h-12 rounded-full overflow-hidden bg-slate-200 shrink-0 border-2 border-white shadow-sm">
                                 {candidate.chairman_photo ? (
-                                <Image
+                                  <Image
                                     src={candidate.chairman_photo}
                                     alt="Ketua"
                                     fill
+                                    sizes="48px"
                                     className="object-cover"
                                     unoptimized
-                                />
+                                  />
                                 ) : (
-                                <div className="w-full h-full flex items-center justify-center text-slate-400">
+                                  <div className="w-full h-full flex items-center justify-center text-slate-400">
                                     <ImageIcon className="w-5 h-5" />
-                                </div>
+                                  </div>
                                 )}
-                            </div>
+                              </div>
                               <div>
                                 <p className="font-semibold text-slate-900 text-sm">
                                   {candidate.chairman_name}
@@ -527,24 +527,23 @@ export default function KandidatPage() {
                                 )}
                               </div>
                             </div>
-                            {/* Wakil */}
                             <div className="flex items-center gap-3 ml-4 pl-4 border-l-2 border-slate-200">
-                            <div className="relative w-12 h-12 rounded-full overflow-hidden bg-slate-200 shrink-0 border-2 border-white shadow-sm">
+                              <div className="relative w-12 h-12 rounded-full overflow-hidden bg-slate-200 shrink-0 border-2 border-white shadow-sm">
                                 {candidate.vice_chairman_photo ? (
-                                <Image
+                                  <Image
                                     src={candidate.vice_chairman_photo}
                                     alt="Wakil"
                                     fill
                                     sizes="48px"
                                     className="object-cover"
                                     unoptimized
-                                />
+                                  />
                                 ) : (
-                                <div className="w-full h-full flex items-center justify-center text-slate-400">
+                                  <div className="w-full h-full flex items-center justify-center text-slate-400">
                                     <ImageIcon className="w-5 h-5" />
-                                </div>
+                                  </div>
                                 )}
-                            </div>
+                              </div>
                               <div>
                                 <p className="font-semibold text-slate-900 text-sm">
                                   {candidate.vice_chairman_name}
@@ -610,7 +609,6 @@ export default function KandidatPage() {
             </table>
           </div>
 
-          {/* Footer */}
           <div className="mt-4 pt-4 border-t border-slate-100">
             <p className="text-sm text-slate-500">
               Total: {filteredCandidates.length} pasangan kandidat terdaftar.
@@ -634,7 +632,6 @@ export default function KandidatPage() {
           </DialogHeader>
 
           <div className="space-y-6 pt-4">
-            {/* Nomor Urut */}
             <div className="space-y-2">
               <label className="text-xs font-bold text-slate-700 uppercase tracking-wide">
                 Nomor Urut
@@ -649,9 +646,7 @@ export default function KandidatPage() {
               />
             </div>
 
-            {/* Calon Ketua & Wakil - 2 Kolom */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 rounded-xl p-5 border border-slate-200">
-              {/* Calon Ketua */}
               <div className="space-y-4">
                 <div className="flex items-center gap-2 pb-2 border-b border-slate-200">
                   <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold">
@@ -660,7 +655,6 @@ export default function KandidatPage() {
                   <span className="text-sm font-semibold text-slate-700">Calon Ketua</span>
                 </div>
 
-                {/* Upload Foto Ketua */}
                 <div className="flex justify-center">
                   <label className="relative cursor-pointer group">
                     <div className="w-28 h-28 rounded-xl border-2 border-dashed border-slate-300 bg-white flex flex-col items-center justify-center gap-1 hover:border-blue-400 hover:bg-blue-50 transition-colors overflow-hidden">
@@ -689,14 +683,12 @@ export default function KandidatPage() {
                   </label>
                 </div>
 
-                {/* Nama Ketua */}
                 <Input
                   placeholder="Nama Lengkap Ketua"
                   value={formData.chairman_name}
                   onChange={(e) => setFormData({ ...formData, chairman_name: e.target.value })}
                 />
 
-                {/* Kelas Ketua */}
                 <Select
                   value={formData.chairman_class_id}
                   onValueChange={(val) => setFormData({ ...formData, chairman_class_id: val })}
@@ -714,7 +706,6 @@ export default function KandidatPage() {
                 </Select>
               </div>
 
-              {/* Calon Wakil */}
               <div className="space-y-4">
                 <div className="flex items-center gap-2 pb-2 border-b border-slate-200">
                   <div className="w-6 h-6 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-xs font-bold">
@@ -723,7 +714,6 @@ export default function KandidatPage() {
                   <span className="text-sm font-semibold text-slate-700">Calon Wakil</span>
                 </div>
 
-                {/* Upload Foto Wakil */}
                 <div className="flex justify-center">
                   <label className="relative cursor-pointer group">
                     <div className="w-28 h-28 rounded-xl border-2 border-dashed border-slate-300 bg-white flex flex-col items-center justify-center gap-1 hover:border-blue-400 hover:bg-blue-50 transition-colors overflow-hidden">
@@ -752,14 +742,12 @@ export default function KandidatPage() {
                   </label>
                 </div>
 
-                {/* Nama Wakil */}
                 <Input
                   placeholder="Nama Lengkap Wakil"
                   value={formData.vice_chairman_name}
                   onChange={(e) => setFormData({ ...formData, vice_chairman_name: e.target.value })}
                 />
 
-                {/* Kelas Wakil */}
                 <Select
                   value={formData.vice_chairman_class_id}
                   onValueChange={(val) => setFormData({ ...formData, vice_chairman_class_id: val })}
@@ -778,7 +766,6 @@ export default function KandidatPage() {
               </div>
             </div>
 
-            {/* Visi */}
             <div className="space-y-2">
               <label className="text-xs font-bold text-slate-700 uppercase tracking-wide">
                 Visi
@@ -791,7 +778,6 @@ export default function KandidatPage() {
               />
             </div>
 
-            {/* Misi */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold text-slate-700 uppercase tracking-wide">
@@ -831,7 +817,6 @@ export default function KandidatPage() {
               </div>
             </div>
 
-            {/* Buttons */}
             <div className="flex justify-end pt-4 border-t border-slate-100">
               <Button
                 onClick={handleSave}
@@ -863,7 +848,6 @@ export default function KandidatPage() {
           </DialogHeader>
 
           <div className="space-y-6 pt-4">
-            {/* Foto & Nama */}
             <div className="grid grid-cols-2 gap-4">
               <div className="text-center space-y-2">
                 <div className="aspect-square rounded-xl overflow-hidden bg-slate-100 relative">
@@ -925,7 +909,6 @@ export default function KandidatPage() {
               </div>
             </div>
 
-            {/* Visi */}
             {selectedCandidate?.vision && (
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
@@ -940,7 +923,6 @@ export default function KandidatPage() {
               </div>
             )}
 
-            {/* Misi */}
             {selectedCandidate?.mission && (
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
@@ -948,7 +930,7 @@ export default function KandidatPage() {
                   <h4 className="font-bold text-slate-900">Misi (Program Kerja)</h4>
                 </div>
                 <div className="space-y-2">
-                  {selectedCandidate.mission.split("\n").filter(m => m.trim()).map((m, idx) => (
+                  {selectedCandidate.mission.split("\n").filter((m: string) => m.trim()).map((m, idx) => (
                     <div
                       key={idx}
                       className="flex gap-3 items-start bg-slate-50 rounded-xl p-3 border border-slate-100"
@@ -963,7 +945,6 @@ export default function KandidatPage() {
               </div>
             )}
 
-            {/* Statistik Suara */}
             <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4 border border-green-100">
               <div className="flex items-center justify-between">
                 <div>
