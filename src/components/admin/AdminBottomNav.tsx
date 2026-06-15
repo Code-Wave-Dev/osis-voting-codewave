@@ -2,17 +2,17 @@
  
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Vote, BarChart3, ShieldCheck } from "lucide-react";
+import { LayoutDashboard, Megaphone, Vote, Users } from "lucide-react";
  
 export function AdminBottomNav() {
   const pathname = usePathname();
  
   // Bottom Nav ini berfokus pada perpindahan cepat di layar sentuh
   const navItems = [
-    { name: "Home", href: "/", icon: Home, exact: true },
-    { name: "Kandidat", href: "/vote", icon: Vote },
-    { name: "Hasil", href: "/admin/statistik", icon: BarChart3 },
-    { name: "Admin", href: "/admin/dashboard", icon: ShieldCheck },
+    { name: "Admin", href: "/admin/dashboard", icon: LayoutDashboard },
+    { name: "Data Paslon", href: "/admin/kandidat", icon: Megaphone },
+    { name: "Daftar Pemilih", href: "/admin/pemilih", icon: Vote },
+    { name: "Data Kelas", href: "/admin/kelas", icon: Users, exact: true },
   ];
  
   return (
