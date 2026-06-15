@@ -306,21 +306,38 @@ export default function KandidatPage() {
     setSaving(true);
 
     try {
+      // 1. Hapus semua votes yang terkait dengan kandidat ini
+      const { error: votesError } = await supabase
+        .from("votes")
+        .delete()
+        .eq("candidate_id", selectedCandidate.id);
+
+      if (votesError) {
+        console.error("Error menghapus votes:", votesError);
+        throw votesError;
+      }
+
+      // 2. Hapus foto dari storage (jika ada)
       if (selectedCandidate.chairman_photo?.includes("candidates")) {
         const path = selectedCandidate.chairman_photo.split("/candidates/")[1];
-        if (path) await supabase.storage.from("candidates").remove([path]);
+        if (path) {
+          await supabase.storage.from("candidates").remove([path]);
+        }
       }
       if (selectedCandidate.vice_chairman_photo?.includes("candidates")) {
         const path = selectedCandidate.vice_chairman_photo.split("/candidates/")[1];
-        if (path) await supabase.storage.from("candidates").remove([path]);
+        if (path) {
+          await supabase.storage.from("candidates").remove([path]);
+        }
       }
 
-      const { error } = await supabase
+      // 3. Baru hapus kandidat
+      const { error: candidateError } = await supabase
         .from("candidates")
         .delete()
         .eq("id", selectedCandidate.id);
 
-      if (error) throw error;
+      if (candidateError) throw candidateError;
 
       await fetchCandidates();
       setIsDeleteOpen(false);
@@ -971,7 +988,7 @@ export default function KandidatPage() {
             <AlertDialogTitle>Hapus Paslon</AlertDialogTitle>
             <AlertDialogDescription>
               {selectedCandidate && (selectedCandidate.vote_count || 0) > 0
-                ? `Paslon "${selectedCandidate?.chairman_name} & ${selectedCandidate?.vice_chairman_name}" sudah memiliki ${(selectedCandidate.vote_count || 0)} suara. Menghapus paslon juga akan menghapus data suara terkait. Tindakan ini tidak dapat dibatalkan.`
+                ? `⚠️ PERHATIAN: Paslon "${selectedCandidate?.chairman_name} & ${selectedCandidate?.vice_chairman_name}" sudah memiliki ${(selectedCandidate.vote_count || 0)} suara. Menghapus paslon akan MENGHAPUS SEMUA DATA SUARA terkait. Tindakan ini tidak dapat dibatalkan.`
                 : `Apakah Anda yakin ingin menghapus paslon "${selectedCandidate?.chairman_name} & ${selectedCandidate?.vice_chairman_name}"? Tindakan ini tidak dapat dibatalkan.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
