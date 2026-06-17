@@ -174,7 +174,7 @@ export async function markTokenAsUsed() {
 }
 
 // ==========================================
-// FUNGSI SIMPAN VOTE
+// FUNGSI SIMPAN VOTE - FIXED
 // ==========================================
 export async function submitVote(candidateId: string) {
   try {
@@ -187,18 +187,32 @@ export async function submitVote(candidateId: string) {
 
     const supabase = await createClient();
 
-    // Simpan vote ke database
-    const { error } = await supabase.from("votes").insert([
-      {
-        token_id: tokenId,
-        candidate_id: candidateId,
-        voted_at: new Date().toISOString(),
-      },
-    ]);
+    // Ambil data token untuk dapatkan class_id
+    const { data: tokenData, error: tokenError } = await supabase
+      .from("tokens")
+      .select("class_id")
+      .eq("id", tokenId)
+      .single();
+
+    if (tokenError || !tokenData) {
+      return { success: false, error: "Token tidak valid." };
+    }
+
+    // FIX: Insert sesuai schema database yang sebenarnya
+    const voteData: any = {
+      candidate_id: candidateId,
+    };
+
+    // Tambahkan class_id jika ada
+    if (tokenData.class_id) {
+      voteData.class_id = tokenData.class_id;
+    }
+
+    const { error } = await supabase.from("votes").insert([voteData]);
 
     if (error) {
       console.error("Error submitVote:", error);
-      return { success: false, error: "Gagal menyimpan suara." };
+      return { success: false, error: `Gagal menyimpan suara: ${error.message}` };
     }
 
     // Tandai token sebagai sudah digunakan

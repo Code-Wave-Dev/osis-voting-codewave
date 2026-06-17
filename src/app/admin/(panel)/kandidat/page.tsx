@@ -582,274 +582,278 @@ export default function KandidatPage() {
         )}
       </div>
 
-      {/* Dialog Form Tambah/Edit */}
-      <Dialog open={isFormOpen} onOpenChange={(open) => { if (!open) resetForm(); }}>
-        <DialogContent
-          className="w-full max-h-[95vh] overflow-y-auto rounded-3xl border-2 border-slate-200 shadow-2xl"
-          style={{
-            maxWidth: '95vw',
-            width: '95vw',
-            padding: 0,
-          }}
+     {/* Dialog Form Tambah/Edit - RESPONSIVE */}
+<Dialog open={isFormOpen} onOpenChange={(open) => { if (!open) resetForm(); }}>
+  <DialogContent
+    className="max-h-[95vh] overflow-y-auto rounded-3xl border-2 border-slate-200 shadow-2xl p-0"
+    style={{
+      // Desktop: fixed max width, Mobile: full width
+      maxWidth: 'min(1200px, 95vw)',
+      width: '100%',
+    }}
+  >
+    <DialogTitle className="sr-only">
+      {isEdit ? "Edit Data Paslon" : "Registrasi Paslon Baru"}
+    </DialogTitle>
+    
+    {/* Header - Responsive */}
+    <div className="sticky top-0 bg-white border-b-2 border-slate-100 p-6 md:p-8 z-10 rounded-t-3xl">
+      <div className="flex items-start md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3 md:gap-5 flex-1">
+          <div className="w-12 h-12 md:w-16 md:h-16 rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center shadow-xl shadow-indigo-500/30 shrink-0">
+            {isEdit ? <Edit className="w-5 h-5 md:w-7 md:h-7 text-white" /> : <Plus className="w-5 h-5 md:w-7 md:h-7 text-white" />}
+          </div>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-xl md:text-4xl font-black text-slate-900 leading-tight">
+              {isEdit ? "Edit Data Paslon" : "Registrasi Paslon Baru"}
+            </h2>
+            <p className="text-sm md:text-lg text-slate-500 font-medium mt-1 md:mt-2 hidden md:block">
+              {isEdit
+                ? "Ubah data pasangan calon yang sudah ada"
+                : "Lengkapi informasi untuk menambahkan kandidat baru"}
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={() => resetForm()}
+          className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors shrink-0"
         >
-          <DialogTitle className="sr-only">
-            {isEdit ? "Edit Data Paslon" : "Registrasi Paslon Baru"}
-          </DialogTitle>
-          
-          {/* Header */}
-          <div className="sticky top-0 bg-white border-b-2 border-slate-100 p-8 z-10 rounded-t-3xl">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-5">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center shadow-xl shadow-indigo-500/30">
-                  {isEdit ? <Edit className="w-7 h-7 text-white" /> : <Plus className="w-7 h-7 text-white" />}
-                </div>
-                <div>
-                  <h2 className="text-4xl font-black text-slate-900">
-                    {isEdit ? "Edit Data Paslon" : "Registrasi Paslon Baru"}
-                  </h2>
-                  <p className="text-lg text-slate-500 font-medium mt-2">
-                    {isEdit
-                      ? "Ubah data pasangan calon yang sudah ada"
-                      : "Lengkapi informasi untuk menambahkan kandidat baru"}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => resetForm()}
-                className="w-12 h-12 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors"
-              >
-                <X className="w-6 h-6 text-slate-600" />
-              </button>
+          <X className="w-5 h-5 md:w-6 md:h-6 text-slate-600" />
+        </button>
+      </div>
+      {/* Mobile subtitle */}
+      <p className="text-sm text-slate-500 font-medium mt-2 md:hidden">
+        {isEdit
+          ? "Ubah data pasangan calon"
+          : "Tambah kandidat baru"}
+      </p>
+    </div>
+
+    {/* Body - Responsive */}
+    <div className="p-4 md:p-10 space-y-6 md:space-y-10">
+      {/* Nomor Urut */}
+      <div className="bg-gradient-to-br from-indigo-50 via-violet-50 to-purple-50 rounded-2xl md:rounded-3xl p-4 md:p-8 border-2 border-indigo-100">
+        <label className="text-xs md:text-sm font-black text-indigo-900 uppercase tracking-widest mb-3 md:mb-4 block">
+          Nomor Urut
+        </label>
+        <Input
+          type="number"
+          placeholder="Contoh: 1"
+          value={formData.order_number}
+          onChange={(e) => setFormData({ ...formData, order_number: e.target.value })}
+          className="h-12 md:h-16 text-lg md:text-2xl font-bold border-2 border-indigo-200 rounded-xl md:rounded-2xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 bg-white"
+          min="1"
+        />
+      </div>
+
+      {/* Calon Ketua dan Wakil - Stack on mobile, side-by-side on desktop */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
+        {/* Calon Ketua */}
+        <div className="bg-gradient-to-br from-indigo-50/70 via-violet-50/70 to-purple-50/70 rounded-2xl md:rounded-3xl p-4 md:p-8 border-2 border-indigo-200 space-y-4 md:space-y-6">
+          <div className="flex items-center gap-3 md:gap-4 pb-4 md:pb-6 border-b-2 border-indigo-200">
+            <div className="w-12 h-12 md:w-16 md:h-16 rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center text-white font-black text-lg md:text-2xl shadow-xl shadow-indigo-500/30 shrink-0">
+              K
+            </div>
+            <div>
+              <span className="text-base md:text-2xl font-black text-slate-900 block">Calon Ketua</span>
+              <span className="text-xs md:text-sm text-slate-500 font-medium hidden md:block">Lengkapi data calon ketua</span>
             </div>
           </div>
 
-          {/* Body */}
-          <div className="p-10 space-y-10">
-            {/* Nomor Urut */}
-            <div className="bg-gradient-to-br from-indigo-50 via-violet-50 to-purple-50 rounded-3xl p-8 border-2 border-indigo-100">
-              <label className="text-sm font-black text-indigo-900 uppercase tracking-widest mb-4 block">
-                Nomor Urut
+          <div className="flex justify-center">
+            <label className="relative cursor-pointer group">
+              <div className="w-32 h-32 md:w-48 md:h-48 rounded-2xl md:rounded-3xl border-4 border-dashed border-indigo-300 bg-white flex flex-col items-center justify-center gap-2 md:gap-4 hover:border-indigo-500 hover:bg-indigo-50 transition-all overflow-hidden shadow-xl">
+                {chairmanPhotoPreview ? (
+                  <Image
+                    src={chairmanPhotoPreview}
+                    alt="Preview Ketua"
+                    width={192}
+                    height={192}
+                    className="object-cover w-full h-full"
+                    unoptimized
+                  />
+                ) : (
+                  <>
+                    <div className="w-12 h-12 md:w-20 md:h-20 rounded-xl md:rounded-2xl bg-gradient-to-br from-indigo-100 to-violet-100 flex items-center justify-center">
+                      <ImageIcon className="w-6 h-6 md:w-10 md:h-10 text-indigo-600" />
+                    </div>
+                    <span className="text-xs md:text-base font-bold text-indigo-600 text-center px-2">Upload Foto</span>
+                  </>
+                )}
+              </div>
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => handlePhotoChange(e, "chairman")}
+              />
+            </label>
+          </div>
+
+          <div className="space-y-3 md:space-y-5">
+            <div>
+              <label className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-2 md:mb-3 block">
+                Nama Lengkap
               </label>
               <Input
-                type="number"
-                placeholder="Contoh: 1"
-                value={formData.order_number}
-                onChange={(e) => setFormData({ ...formData, order_number: e.target.value })}
-                className="h-16 text-2xl font-bold border-2 border-indigo-200 rounded-2xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 bg-white"
-                min="1"
+                placeholder="Nama lengkap ketua"
+                value={formData.chairman_name}
+                onChange={(e) => setFormData({ ...formData, chairman_name: e.target.value })}
+                className="h-11 md:h-16 text-base md:text-lg border-2 border-slate-200 rounded-xl md:rounded-2xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20"
               />
-            </div>
-
-            {/* Calon Ketua dan Wakil */}
-            <div className="grid grid-cols-2 gap-8">
-              {/* Calon Ketua */}
-              <div className="bg-gradient-to-br from-indigo-50/70 via-violet-50/70 to-purple-50/70 rounded-3xl p-8 border-2 border-indigo-200 space-y-6">
-                <div className="flex items-center gap-4 pb-6 border-b-2 border-indigo-200">
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center text-white font-black text-2xl shadow-xl shadow-indigo-500/30">
-                    K
-                  </div>
-                  <div>
-                    <span className="text-2xl font-black text-slate-900 block">Calon Ketua</span>
-                    <span className="text-sm text-slate-500 font-medium">Lengkapi data calon ketua</span>
-                  </div>
-                </div>
-
-                <div className="flex justify-center">
-                  <label className="relative cursor-pointer group">
-                    <div className="w-48 h-48 rounded-3xl border-4 border-dashed border-indigo-300 bg-white flex flex-col items-center justify-center gap-4 hover:border-indigo-500 hover:bg-indigo-50 transition-all overflow-hidden shadow-2xl">
-                      {chairmanPhotoPreview ? (
-                        <Image
-                          src={chairmanPhotoPreview}
-                          alt="Preview Ketua"
-                          width={192}
-                          height={192}
-                          className="object-cover w-full h-full"
-                          unoptimized
-                        />
-                      ) : (
-                        <>
-                          <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-indigo-100 to-violet-100 flex items-center justify-center">
-                            <ImageIcon className="w-10 h-10 text-indigo-600" />
-                          </div>
-                          <span className="text-base font-bold text-indigo-600">Upload Foto</span>
-                          <span className="text-xs text-slate-400">Max 5MB</span>
-                        </>
-                      )}
-                    </div>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => handlePhotoChange(e, "chairman")}
-                    />
-                  </label>
-                </div>
-
-                <div className="space-y-5">
-                  <div>
-                    <label className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-3 block">
-                      Nama Lengkap
-                    </label>
-                    <Input
-                      placeholder="Masukkan nama lengkap calon ketua"
-                      value={formData.chairman_name}
-                      onChange={(e) => setFormData({ ...formData, chairman_name: e.target.value })}
-                      className="h-16 text-lg border-2 border-slate-200 rounded-2xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Calon Wakil */}
-              <div className="bg-gradient-to-br from-slate-50 via-slate-100 to-slate-50 rounded-3xl p-8 border-2 border-slate-200 space-y-6">
-                <div className="flex items-center gap-4 pb-6 border-b-2 border-slate-200">
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-slate-700 to-slate-600 flex items-center justify-center text-white font-black text-2xl shadow-xl">
-                    W
-                  </div>
-                  <div>
-                    <span className="text-2xl font-black text-slate-900 block">Calon Wakil</span>
-                    <span className="text-sm text-slate-500 font-medium">Lengkapi data calon wakil</span>
-                  </div>
-                </div>
-
-                <div className="flex justify-center">
-                  <label className="relative cursor-pointer group">
-                    <div className="w-48 h-48 rounded-3xl border-4 border-dashed border-slate-300 bg-white flex flex-col items-center justify-center gap-4 hover:border-slate-500 hover:bg-slate-50 transition-all overflow-hidden shadow-2xl">
-                      {vicePhotoPreview ? (
-                        <Image
-                          src={vicePhotoPreview}
-                          alt="Preview Wakil"
-                          width={192}
-                          height={192}
-                          className="object-cover w-full h-full"
-                          unoptimized
-                        />
-                      ) : (
-                        <>
-                          <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center">
-                            <ImageIcon className="w-10 h-10 text-slate-600" />
-                          </div>
-                          <span className="text-base font-bold text-slate-600">Upload Foto</span>
-                          <span className="text-xs text-slate-400">Max 5MB</span>
-                        </>
-                      )}
-                    </div>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => handlePhotoChange(e, "vice")}
-                    />
-                  </label>
-                </div>
-
-                <div className="space-y-5">
-                  <div>
-                    <label className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-3 block">
-                      Nama Lengkap
-                    </label>
-                    <Input
-                      placeholder="Masukkan nama lengkap calon wakil"
-                      value={formData.vice_chairman_name}
-                      onChange={(e) => setFormData({ ...formData, vice_chairman_name: e.target.value })}
-                      className="h-16 text-lg border-2 border-slate-200 rounded-2xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Visi */}
-            <div className="bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 rounded-3xl p-8 border-2 border-amber-100">
-              <div className="flex items-center gap-3 mb-4">
-                <Sparkles className="w-6 h-6 text-amber-600" />
-                <label className="text-sm font-black text-amber-900 uppercase tracking-widest">
-                  Visi
-                </label>
-              </div>
-              <textarea
-                className="w-full min-h-[160px] px-6 py-4 border-2 border-amber-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-amber-500/20 text-lg font-medium bg-white resize-none"
-                placeholder="Tuliskan visi utama paslon..."
-                value={formData.vision}
-                onChange={(e) => setFormData({ ...formData, vision: e.target.value })}
-              />
-            </div>
-
-            {/* Misi */}
-            <div className="bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 rounded-3xl p-8 border-2 border-emerald-100">
-              <div className="flex items-center justify-between mb-8">
-                <div className="flex items-center gap-3">
-                  <Briefcase className="w-6 h-6 text-emerald-600" />
-                  <label className="text-sm font-black text-emerald-900 uppercase tracking-widest">
-                    Misi (Program Kerja)
-                  </label>
-                </div>
-                <button
-                  type="button"
-                  onClick={addMission}
-                  className="px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-base font-bold rounded-xl flex items-center gap-2 transition-all shadow-xl shadow-emerald-500/30"
-                >
-                  <Plus className="w-5 h-5" /> Tambah Misi
-                </button>
-              </div>
-              <div className="space-y-4">
-                {missions.map((mission, idx) => (
-                  <div key={idx} className="flex items-center gap-5 group">
-                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-600 flex items-center justify-center text-white font-black text-lg shadow-xl shadow-emerald-500/30 shrink-0">
-                      {idx + 1}
-                    </div>
-                    <Input
-                      placeholder={`Tuliskan misi ke-${idx + 1}`}
-                      value={mission}
-                      onChange={(e) => updateMission(idx, e.target.value)}
-                      className="flex-1 h-16 text-lg border-2 border-slate-200 rounded-2xl focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/20"
-                    />
-                    {missions.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeMission(idx)}
-                        className="w-14 h-14 rounded-2xl bg-red-50 text-red-600 hover:bg-red-100 flex items-center justify-center transition-colors border-2 border-red-200"
-                      >
-                        <X className="w-6 h-6" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex justify-end gap-5 pt-8 border-t-2 border-slate-100">
-              <Button
-                onClick={() => resetForm()}
-                variant="outline"
-                className="px-10 py-5 rounded-2xl font-bold border-2 border-slate-200 hover:bg-slate-50 text-lg"
-              >
-                Batal
-              </Button>
-              <Button
-                onClick={handleSave}
-                disabled={saving || uploading}
-                className="px-12 py-5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white rounded-2xl font-black shadow-2xl shadow-indigo-500/40 active:scale-95 transition-all disabled:opacity-50 text-lg"
-              >
-                {uploading ? (
-                  <span className="flex items-center gap-3">
-                    <div className="w-6 h-6 border-3 border-white/30 border-t-white rounded-full animate-spin" />
-                    Mengupload...
-                  </span>
-                ) : saving ? (
-                  <span className="flex items-center gap-3">
-                    <div className="w-6 h-6 border-3 border-white/30 border-t-white rounded-full animate-spin" />
-                    Menyimpan...
-                  </span>
-                ) : (
-                  "Simpan Data"
-                )}
-              </Button>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+
+        {/* Calon Wakil */}
+        <div className="bg-gradient-to-br from-slate-50 via-slate-100 to-slate-50 rounded-2xl md:rounded-3xl p-4 md:p-8 border-2 border-slate-200 space-y-4 md:space-y-6">
+          <div className="flex items-center gap-3 md:gap-4 pb-4 md:pb-6 border-b-2 border-slate-200">
+            <div className="w-12 h-12 md:w-16 md:h-16 rounded-2xl bg-gradient-to-br from-slate-700 to-slate-600 flex items-center justify-center text-white font-black text-lg md:text-2xl shadow-xl shrink-0">
+              W
+            </div>
+            <div>
+              <span className="text-base md:text-2xl font-black text-slate-900 block">Calon Wakil</span>
+              <span className="text-xs md:text-sm text-slate-500 font-medium hidden md:block">Lengkapi data calon wakil</span>
+            </div>
+          </div>
+
+          <div className="flex justify-center">
+            <label className="relative cursor-pointer group">
+              <div className="w-32 h-32 md:w-48 md:h-48 rounded-2xl md:rounded-3xl border-4 border-dashed border-slate-300 bg-white flex flex-col items-center justify-center gap-2 md:gap-4 hover:border-slate-500 hover:bg-slate-50 transition-all overflow-hidden shadow-xl">
+                {vicePhotoPreview ? (
+                  <Image
+                    src={vicePhotoPreview}
+                    alt="Preview Wakil"
+                    width={192}
+                    height={192}
+                    className="object-cover w-full h-full"
+                    unoptimized
+                  />
+                ) : (
+                  <>
+                    <div className="w-12 h-12 md:w-20 md:h-20 rounded-xl md:rounded-2xl bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center">
+                      <ImageIcon className="w-6 h-6 md:w-10 md:h-10 text-slate-600" />
+                    </div>
+                    <span className="text-xs md:text-base font-bold text-slate-600 text-center px-2">Upload Foto</span>
+                  </>
+                )}
+              </div>
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => handlePhotoChange(e, "vice")}
+              />
+            </label>
+          </div>
+
+          <div className="space-y-3 md:space-y-5">
+            <div>
+              <label className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-2 md:mb-3 block">
+                Nama Lengkap
+              </label>
+              <Input
+                placeholder="Nama lengkap wakil"
+                value={formData.vice_chairman_name}
+                onChange={(e) => setFormData({ ...formData, vice_chairman_name: e.target.value })}
+                className="h-11 md:h-16 text-base md:text-lg border-2 border-slate-200 rounded-xl md:rounded-2xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Visi */}
+      <div className="bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 rounded-2xl md:rounded-3xl p-4 md:p-8 border-2 border-amber-100">
+        <div className="flex items-center gap-2 md:gap-3 mb-3 md:mb-4">
+          <Sparkles className="w-5 h-5 md:w-6 md:h-6 text-amber-600" />
+          <label className="text-xs md:text-sm font-black text-amber-900 uppercase tracking-widest">
+            Visi
+          </label>
+        </div>
+        <textarea
+          className="w-full min-h-[100px] md:min-h-[160px] px-4 md:px-6 py-3 md:py-4 border-2 border-amber-200 rounded-xl md:rounded-2xl focus:outline-none focus:ring-4 focus:ring-amber-500/20 text-sm md:text-lg font-medium bg-white resize-none"
+          placeholder="Tuliskan visi utama paslon..."
+          value={formData.vision}
+          onChange={(e) => setFormData({ ...formData, vision: e.target.value })}
+        />
+      </div>
+
+      {/* Misi */}
+      <div className="bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 rounded-2xl md:rounded-3xl p-4 md:p-8 border-2 border-emerald-100">
+        <div className="flex items-center justify-between mb-4 md:mb-8">
+          <div className="flex items-center gap-2 md:gap-3">
+            <Briefcase className="w-5 h-5 md:w-6 md:h-6 text-emerald-600" />
+            <label className="text-xs md:text-sm font-black text-emerald-900 uppercase tracking-widest">
+              Misi
+            </label>
+          </div>
+          <button
+            type="button"
+            onClick={addMission}
+            className="px-3 md:px-6 py-2 md:py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs md:text-base font-bold rounded-lg md:rounded-xl flex items-center gap-1 md:gap-2 transition-all shadow-xl shadow-emerald-500/30"
+          >
+            <Plus className="w-3 h-3 md:w-5 md:h-5" /> <span className="hidden sm:inline">Tambah</span>
+          </button>
+        </div>
+        <div className="space-y-3">
+          {missions.map((mission, idx) => (
+            <div key={idx} className="flex items-center gap-3 md:gap-5 group">
+              <div className="w-10 h-10 md:w-14 md:h-14 rounded-xl md:rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-600 flex items-center justify-center text-white font-black text-sm md:text-lg shadow-xl shadow-emerald-500/30 shrink-0">
+                {idx + 1}
+              </div>
+              <Input
+                placeholder={`Misi ke-${idx + 1}`}
+                value={mission}
+                onChange={(e) => updateMission(idx, e.target.value)}
+                className="flex-1 h-10 md:h-16 text-sm md:text-lg border-2 border-slate-200 rounded-xl md:rounded-2xl focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/20"
+              />
+              {missions.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removeMission(idx)}
+                  className="w-10 h-10 md:w-14 md:h-14 rounded-xl md:rounded-2xl bg-red-50 text-red-600 hover:bg-red-100 flex items-center justify-center transition-colors border-2 border-red-200 shrink-0"
+                >
+                  <X className="w-4 h-4 md:w-6 md:h-6" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Action Buttons - Responsive */}
+      <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 md:gap-5 pt-6 md:pt-8 border-t-2 border-slate-100">
+        <Button
+          onClick={() => resetForm()}
+          variant="outline"
+          className="w-full sm:w-auto px-6 md:px-10 py-4 md:py-5 rounded-xl md:rounded-2xl font-bold border-2 border-slate-200 hover:bg-slate-50 text-sm md:text-lg"
+        >
+          Batal
+        </Button>
+        <Button
+          onClick={handleSave}
+          disabled={saving || uploading}
+          className="w-full sm:w-auto px-6 md:px-12 py-4 md:py-5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white rounded-xl md:rounded-2xl font-black shadow-2xl shadow-indigo-500/40 active:scale-95 transition-all disabled:opacity-50 text-sm md:text-lg"
+        >
+          {uploading ? (
+            <span className="flex items-center justify-center gap-2 md:gap-3">
+              <div className="w-4 h-4 md:w-6 md:h-6 border-2 md:border-3 border-white/30 border-t-white rounded-full animate-spin" />
+              Mengupload...
+            </span>
+          ) : saving ? (
+            <span className="flex items-center justify-center gap-2 md:gap-3">
+              <div className="w-4 h-4 md:w-6 md:h-6 border-2 md:border-3 border-white/30 border-t-white rounded-full animate-spin" />
+              Menyimpan...
+            </span>
+          ) : (
+            "Simpan Data"
+          )}
+        </Button>
+      </div>
+    </div>
+  </DialogContent>
+</Dialog>
 
       {/* Dialog Detail Kandidat */}
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
