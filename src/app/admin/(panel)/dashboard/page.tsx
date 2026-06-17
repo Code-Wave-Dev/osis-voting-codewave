@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, ReactNode } from "react";
 import { createClient } from "@/utils/supabase/client";
 import {
   Users,
@@ -14,7 +14,8 @@ import {
   Activity,
   BarChart4,
   LayoutGrid,
-  Clock
+  Clock,
+  TrendingUp
 } from "lucide-react";
 
 interface CandidateVote {
@@ -81,7 +82,6 @@ export default function RealtimeDashboard() {
         return acc;
       }, {});
 
-      // Urutan Paslon dikunci berdasarkan nomor urut bawaan (tidak di-sort berdasarkan suara)
       const processedCandidates = (candidatesData || []).map((c) => {
         const count = voteCountMap[c.id] || 0;
         const percentage = safeUsedTokens > 0 ? (count / safeUsedTokens) * 100 : 0;
@@ -136,7 +136,6 @@ export default function RealtimeDashboard() {
     return () => clearInterval(syncInterval);
   }, []);
 
-  // Mencari Paslon unggul secara dinamis tanpa mengubah urutan array utama
   const leader = useMemo(() => {
     if (!stats?.votesByCandidate || stats.votesByCandidate.length === 0) return null;
     return [...stats.votesByCandidate].sort((a, b) => b.vote_count - a.vote_count)[0];
@@ -152,286 +151,337 @@ export default function RealtimeDashboard() {
 
   if (!stats && isSyncing) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
-        <Activity className="w-8 h-8 text-zinc-900 animate-pulse" />
-        <p className="text-sm font-medium text-zinc-500">Menyinkronkan data...</p>
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30">
+        <div className="relative">
+          <div className="absolute inset-0 rounded-full bg-indigo-500/20 blur-3xl animate-pulse"></div>
+          <div className="relative w-20 h-20 rounded-full bg-white shadow-2xl flex items-center justify-center">
+            <Activity className="w-10 h-10 text-indigo-600 animate-bounce" />
+          </div>
+        </div>
+        <p className="mt-8 text-lg font-bold text-slate-700 tracking-wide">Menyinkronkan data...</p>
+        <div className="mt-4 flex gap-2">
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-bounce"
+              style={{ animationDelay: `${i * 0.15}s` }}
+            />
+          ))}
+        </div>
       </div>
     );
   }
 
-  const chartColors = ["#18181b", "#52525b", "#a1a1aa", "#d4d4d8", "#f4f4f5"];
+  const chartColors = [
+    "from-indigo-600 to-violet-500",
+    "from-slate-800 to-slate-600",
+    "from-emerald-600 to-teal-500",
+    "from-amber-600 to-orange-500",
+    "from-rose-600 to-pink-500"
+  ];
+  
+  const chartSolidColors = ["#4f46e5", "#1e293b", "#059669", "#d97706", "#e11d48"];
 
   return (
-    <div className="p-4 md:p-8 w-full max-w-7xl mx-auto space-y-8 bg-zinc-50 min-h-screen font-sans">
-      
-      {/* Top Navigation / Header Area */}
-      <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-4 border-b border-zinc-200">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
-            </span>
-            <span className="text-xs font-bold text-red-600 uppercase tracking-wider">Live Monitoring</span>
-          </div>
-          <h1 className="text-3xl font-extrabold text-zinc-900 tracking-tight">Pusat Komando</h1>
-          <p className="text-sm text-zinc-500 font-medium">Pemantauan hasil pemilihan OSIS secara real-time</p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <div className="hidden sm:flex items-center gap-2 px-3 py-2 bg-white border border-zinc-200 shadow-sm rounded-lg text-sm text-zinc-600 font-medium">
-            <Clock className="w-4 h-4 text-zinc-400" />
-            {timeString}
-          </div>
-          <button
-            onClick={fetchMetrics}
-            disabled={isSyncing}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-white text-sm font-medium rounded-lg transition-all shadow-sm disabled:opacity-70"
-          >
-            <RefreshCcw className={`w-4 h-4 ${isSyncing ? "animate-spin" : ""}`} />
-            <span className="hidden sm:inline">Sinkronisasi</span>
-          </button>
-        </div>
-      </header>
-
-      {/* Primary Metrics */}
-      <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/20 font-sans antialiased">
+      <div className="p-4 md:p-8 w-full max-w-7xl mx-auto space-y-8">
         
-        {/* Partisipasi Card */}
-        <div className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-sm col-span-2 md:col-span-1 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <div className="w-8 h-8 rounded-lg bg-zinc-100 flex items-center justify-center">
-                <Activity className="w-4 h-4 text-zinc-700" />
-              </div>
-              <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Partisipasi</span>
+        {/* Header */}
+        <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 pb-8">
+          <div className="space-y-3">
+            <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-emerald-50 border border-emerald-200">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+              </span>
+              <span className="text-xs font-black text-emerald-700 uppercase tracking-widest">Live Monitoring</span>
             </div>
-            <div className="flex items-baseline gap-1 mt-2">
-              <p className="text-3xl font-bold text-zinc-900">{stats?.participationRate}</p>
-              <span className="text-sm font-medium text-zinc-500">%</span>
+            <h1 className="text-5xl md:text-6xl font-black text-slate-900 tracking-tight">
+              Pusat Kendali
+            </h1>
+            <p className="text-lg text-slate-600 font-medium">Pemantauan hasil pemilihan OSIS secara real-time</p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="hidden sm:flex items-center gap-2.5 px-5 py-3 bg-white border border-slate-200 shadow-lg rounded-2xl text-sm text-slate-700 font-bold">
+              <Clock className="w-4 h-4 text-indigo-500" />
+              <span className="font-mono">{timeString}</span>
             </div>
+            <button
+              onClick={fetchMetrics}
+              disabled={isSyncing}
+              className="flex items-center justify-center gap-2.5 px-6 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white text-sm font-black rounded-2xl transition-all shadow-xl shadow-indigo-500/30 disabled:opacity-70 active:scale-95"
+            >
+              <RefreshCcw className={`w-4 h-4 ${isSyncing ? "animate-spin" : ""}`} />
+              <span className="hidden sm:inline">Sinkronisasi</span>
+            </button>
           </div>
-          <div className="mt-4 w-full bg-zinc-100 rounded-full h-1.5 overflow-hidden">
-            <div
-              className="bg-zinc-900 h-full rounded-full transition-all duration-1000 ease-out"
-              style={{ width: `${stats?.participationRate}%` }}
-            />
-          </div>
-        </div>
+        </header>
 
-        {/* Suara Masuk */}
-        <div className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-2">
-            <div className="w-8 h-8 rounded-lg bg-zinc-100 flex items-center justify-center">
-              <CheckCircle2 className="w-4 h-4 text-zinc-700" />
-            </div>
-          </div>
-          <div>
-            <p className="text-3xl font-bold text-zinc-900">{stats?.usedTokens}</p>
-            <p className="text-xs font-semibold text-zinc-500 mt-1 uppercase tracking-wider">Suara Sah</p>
-          </div>
-        </div>
-
-        {/* Total Pemilih */}
-        <div className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-2">
-            <div className="w-8 h-8 rounded-lg bg-zinc-100 flex items-center justify-center">
-              <KeyRound className="w-4 h-4 text-zinc-700" />
-            </div>
-          </div>
-          <div>
-            <p className="text-3xl font-bold text-zinc-900">{stats?.totalTokens}</p>
-            <p className="text-xs font-semibold text-zinc-500 mt-1 uppercase tracking-wider">Total Pemilih</p>
-          </div>
-        </div>
-
-        {/* Kandidat */}
-        <div className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-2">
-            <div className="w-8 h-8 rounded-lg bg-zinc-100 flex items-center justify-center">
-              <Users className="w-4 h-4 text-zinc-700" />
-            </div>
-          </div>
-          <div>
-            <p className="text-3xl font-bold text-zinc-900">{stats?.totalCandidates}</p>
-            <p className="text-xs font-semibold text-zinc-500 mt-1 uppercase tracking-wider">Paslon</p>
-          </div>
-        </div>
-
-        {/* Kelas */}
-        <div className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-2">
-            <div className="w-8 h-8 rounded-lg bg-zinc-100 flex items-center justify-center">
-              <School className="w-4 h-4 text-zinc-700" />
-            </div>
-          </div>
-          <div>
-            <p className="text-3xl font-bold text-zinc-900">{stats?.totalClasses}</p>
-            <p className="text-xs font-semibold text-zinc-500 mt-1 uppercase tracking-wider">Daftar Kelas</p>
-          </div>
-        </div>
-
-      </section>
-
-      {/* Main Analytics Area */}
-      <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Bar Chart Section */}
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-zinc-200 shadow-sm p-6">
-          <div className="flex items-start justify-between mb-8">
-            <div>
-              <h3 className="text-lg font-bold text-zinc-900 flex items-center gap-2">
-                <BarChart4 className="w-5 h-5 text-zinc-400" />
-                Perolehan Suara
-              </h3>
-              <p className="text-sm text-zinc-500 mt-1">Distribusi suara masuk berdasarkan nomor urut paslon</p>
-            </div>
-          </div>
-
-          <div className="relative h-72 w-full mt-4 flex items-end justify-around gap-2 sm:gap-6 border-b-2 border-zinc-100 pb-2">
-            {stats?.votesByCandidate.map((candidate, idx) => {
-              const maxVoteCount = Math.max(...(stats.votesByCandidate.map(c => c.vote_count)), 10);
-              const barHeight = (candidate.vote_count / maxVoteCount) * 100;
-              
-              // Penentuan pemenang yang dinamis berdasarkan ID, bukan urutan posisi diagram
-              const isWinner = leader && leader.id === candidate.id && candidate.vote_count > 0;
-              const color = chartColors[idx % chartColors.length];
-
-              return (
-                <div key={candidate.id} className="flex flex-col items-center justify-end w-full max-w-[80px] h-full group">
-                  <div className="mb-2 text-center transition-transform group-hover:-translate-y-1">
-                    <span className={`block font-bold ${isWinner ? 'text-zinc-900 text-lg' : 'text-zinc-500 text-sm'}`}>
-                      {candidate.vote_count}
-                    </span>
-                    {isWinner && <Trophy className="w-4 h-4 mx-auto text-yellow-500 mt-1" />}
-                  </div>
-
-                  <div className="w-full relative flex justify-center items-end h-[200px]">
-                    <div
-                      className="w-full sm:w-16 rounded-t-lg transition-all duration-700 ease-in-out relative overflow-hidden"
-                      style={{ 
-                        height: `${Math.max(barHeight, 2)}%`, 
-                        backgroundColor: color,
-                        opacity: candidate.vote_count === 0 ? 0.2 : 1
-                      }}
-                    >
-                      <div className="absolute inset-0 bg-white/10 hover:bg-transparent transition-colors" />
-                    </div>
-                  </div>
-
-                  <div className="mt-4 text-center">
-                    <div className="w-8 h-8 mx-auto bg-zinc-50 rounded-full flex items-center justify-center text-sm font-bold text-zinc-800 mb-1 border border-zinc-200">
-                      {candidate.order_number}
-                    </div>
-                    <p className="text-xs font-semibold text-zinc-600 truncate w-20 px-1" title={candidate.chairman_name}>
-                      {candidate.chairman_name.split(' ')[0]}
-                    </p>
-                  </div>
+        {/* Primary Metrics - Asymmetric Bento Grid */}
+        <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-5">
+          {/* Partisipasi Card - Featured Large */}
+          <div className="col-span-2 md:col-span-3 lg:col-span-2 bg-gradient-to-br from-indigo-600 to-violet-600 shadow-2xl shadow-indigo-500/30 flex flex-col justify-between p-8 rounded-[2rem] hover:shadow-indigo-500/40 hover:-translate-y-1 transition-all duration-300 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl group-hover:bg-white/20 transition-colors"></div>
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-6">
+                <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-xl flex items-center justify-center border border-white/30">
+                  <Activity className="w-7 h-7 text-white" />
                 </div>
-              );
-            })}
+                <span className="text-xs font-black text-white/80 uppercase tracking-widest">Partisipasi</span>
+              </div>
+              <div className="flex items-baseline gap-2 mt-4">
+                <p className="text-6xl font-black text-white tracking-tight">{stats?.participationRate}</p>
+                <span className="text-2xl font-bold text-white/80">%</span>
+              </div>
+            </div>
+            <div className="mt-8 w-full bg-white/20 rounded-full h-3 overflow-hidden backdrop-blur-sm">
+              <div
+                className="bg-white h-full rounded-full transition-all duration-1000 ease-out shadow-lg"
+                style={{ width: `${stats?.participationRate}%` }}
+              />
+            </div>
           </div>
-        </div>
 
-        {/* Sidebar Analytics (Donut & Leader) */}
-        <div className="space-y-6">
+          <StatCard icon={<CheckCircle2 className="w-6 h-6 text-white" />} gradient="from-emerald-500 to-teal-600" shadowColor="shadow-emerald-500/30" value={stats?.usedTokens} label="Suara Sah" />
+          <StatCard icon={<KeyRound className="w-6 h-6 text-white" />} gradient="from-amber-500 to-orange-600" shadowColor="shadow-amber-500/30" value={stats?.totalTokens} label="Total Pemilih" />
+          <StatCard icon={<Users className="w-6 h-6 text-white" />} gradient="from-rose-500 to-pink-600" shadowColor="shadow-rose-500/30" value={stats?.totalCandidates} label="Paslon" />
+          <StatCard icon={<School className="w-6 h-6 text-white" />} gradient="from-sky-500 to-blue-600" shadowColor="shadow-sky-500/30" value={stats?.totalClasses} label="Daftar Kelas" />
+        </section>
+
+        {/* Main Analytics Area */}
+        <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
-          {/* Current Leader Alert */}
-          {leader && leader.vote_count > 0 && (
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-zinc-200 relative overflow-hidden">
-              <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
-                <Trophy className="w-24 h-24" />
-              </div>
-              <div className="flex items-center gap-2 mb-4">
-                <Trophy className="w-5 h-5 text-yellow-500" />
-                <span className="text-xs font-bold uppercase tracking-wider text-zinc-500">Unggul Sementara</span>
-              </div>
-              <h4 className="text-xl font-extrabold text-zinc-900 mb-1">{leader.chairman_name}</h4>
-              <p className="text-zinc-500 text-sm mb-4">Paslon {leader.order_number}</p>
-              
-              <div className="flex items-end justify-between pt-4 border-t border-zinc-100">
-                <div>
-                  <p className="text-3xl font-black text-zinc-900">{leader.percentage}<span className="text-lg text-zinc-400 font-medium">%</span></p>
-                </div>
-                <div className="text-right">
-                  <p className="text-zinc-400 text-xs font-semibold uppercase tracking-wider mb-1">Perolehan</p>
-                  <p className="text-base font-bold text-zinc-700">{leader.vote_count} Suara</p>
-                </div>
+          {/* Bar Chart Section */}
+          <div className="lg:col-span-2 bg-white border border-slate-200/60 shadow-2xl shadow-slate-200/50 rounded-[2rem] p-8 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-50 rounded-full blur-3xl opacity-50"></div>
+            
+            <div className="relative z-10 flex items-start justify-between mb-12">
+              <div>
+                <h3 className="text-2xl font-black text-slate-900 flex items-center gap-3">
+                  <div className="p-3 rounded-2xl bg-gradient-to-br from-indigo-50 to-violet-50 border border-indigo-100">
+                    <BarChart4 className="w-6 h-6 text-indigo-600" />
+                  </div>
+                  Perolehan Suara
+                </h3>
+                <p className="text-sm text-slate-500 mt-3 ml-16 font-medium">Distribusi suara masuk berdasarkan nomor urut paslon</p>
               </div>
             </div>
-          )}
 
-          {/* Detailed Composition */}
-          <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm p-6">
-            <h3 className="text-sm font-bold text-zinc-900 mb-5 uppercase tracking-wide">Proporsi Suara</h3>
-            <div className="space-y-4">
-              {stats?.votesByCandidate.map((candidate, idx) => (
-                <div key={candidate.id} className="flex items-center gap-3">
-                  <div 
-                    className="w-2.5 h-2.5 rounded-full flex-shrink-0" 
-                    style={{ backgroundColor: chartColors[idx % chartColors.length] }} 
-                  />
-                  <div className="flex-grow">
-                    <div className="flex justify-between items-center mb-1.5">
-                      <span className="text-sm font-medium text-zinc-700">Paslon {candidate.order_number}</span>
-                      <span className="text-sm font-bold text-zinc-900">{candidate.percentage}%</span>
+            <div className="relative z-10 h-80 w-full mt-4 flex items-end justify-around gap-6 sm:gap-10 pb-6">
+              {/* Grid Lines */}
+              <div className="absolute inset-0 flex flex-col justify-between pointer-events-none pb-6">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="border-t border-dashed border-slate-100 w-full h-0" />
+                ))}
+              </div>
+
+              {stats?.votesByCandidate.map((candidate, idx) => {
+                const maxVoteCount = Math.max(...(stats.votesByCandidate.map(c => c.vote_count)), 10);
+                const barHeight = (candidate.vote_count / maxVoteCount) * 100;
+                
+                const isWinner = leader && leader.id === candidate.id && candidate.vote_count > 0;
+                const colorClass = isWinner ? "from-amber-500 via-yellow-500 to-orange-500" : chartColors[idx % chartColors.length];
+
+                return (
+                  <div key={candidate.id} className="flex flex-col items-center justify-end w-full max-w-[110px] h-full group z-10">
+                    <div className="mb-4 text-center transition-transform group-hover:-translate-y-3 duration-300">
+                      <span className={`block font-black ${isWinner ? 'text-amber-600 text-3xl' : 'text-slate-600 text-2xl'}`}>
+                        {candidate.vote_count}
+                      </span>
+                      {isWinner && (
+                        <div className="flex items-center justify-center gap-1.5 mt-2">
+                          <Trophy className="w-5 h-5 text-amber-500" />
+                          <span className="text-[10px] font-black text-amber-600 uppercase tracking-wider">Leader</span>
+                        </div>
+                      )}
                     </div>
-                    <div className="w-full bg-zinc-100 rounded-full h-1.5">
-                      <div 
-                        className="h-full rounded-full transition-all duration-700"
+
+                    <div className="w-full relative flex justify-center items-end h-[260px]">
+                      <div
+                        className={`w-full sm:w-24 rounded-t-[1.5rem] transition-all duration-1000 ease-out relative overflow-hidden bg-gradient-to-t ${colorClass} ${isWinner ? 'shadow-2xl shadow-amber-500/40' : 'shadow-xl shadow-slate-900/10'}`}
                         style={{ 
-                          width: `${candidate.percentage}%`, 
-                          backgroundColor: chartColors[idx % chartColors.length] 
+                          height: `${Math.max(barHeight, 2)}%`, 
+                          opacity: candidate.vote_count === 0 ? 0.1 : 1
                         }}
-                      />
+                      >
+                        {/* Shine Effect */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-transparent via-white/10 to-white/20"></div>
+                      </div>
+                    </div>
+
+                    <div className="mt-6 text-center">
+                      <div className={`w-14 h-14 mx-auto rounded-2xl flex items-center justify-center text-base font-black mb-3 border-2 transition-all ${isWinner ? 'bg-gradient-to-br from-amber-400 to-orange-500 border-amber-300 text-white shadow-xl shadow-amber-500/40' : 'bg-white border-slate-200 text-slate-700 shadow-lg'}`}>
+                        {candidate.order_number}
+                      </div>
+                      <p className="text-xs font-bold text-slate-600 truncate w-28 px-1" title={candidate.chairman_name}>
+                        {candidate.chairman_name.split(' ')[0]}
+                      </p>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
-        </div>
-      </section>
-
-      {/* Class Leaderboard */}
-      {stats?.votesByClass && stats.votesByClass.length > 0 && (
-        <section className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-zinc-100 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <LayoutGrid className="w-5 h-5 text-zinc-400" />
-              <h3 className="text-lg font-bold text-zinc-900">Partisipasi Per Kelas</h3>
-            </div>
-          </div>
-          
-          <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {stats.votesByClass.map((cls) => (
-              <div key={cls.class_name} className="flex flex-col p-4 rounded-xl border border-zinc-100 bg-zinc-50/50 hover:bg-zinc-50 transition-colors">
-                <div className="flex justify-between items-start mb-4">
-                  <span className="font-bold text-zinc-800">{cls.class_name}</span>
-                  <span className="px-2.5 py-1 rounded-md text-xs font-bold bg-white border border-zinc-200 text-zinc-700 shadow-sm">
-                    {cls.total_votes} Suara
-                  </span>
+          {/* Sidebar Analytics */}
+          <div className="space-y-6">
+            
+            {/* Current Leader Alert */}
+            {leader && leader.vote_count > 0 && (
+              <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white rounded-[2rem] p-8 shadow-2xl relative overflow-hidden group border border-slate-700/50">
+                <div className="absolute -top-20 -right-20 w-64 h-64 bg-amber-500/20 blur-3xl rounded-full group-hover:bg-amber-500/30 transition-colors"></div>
+                <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
+                  <Trophy className="w-48 h-48 text-amber-400" />
                 </div>
                 
-                <div className="mt-auto">
-                  <div className="flex justify-between text-xs text-zinc-500 mb-1.5">
-                    <span className="font-medium">Tingkat Partisipasi</span>
-                    <span className="font-bold text-zinc-700">{cls.participation_rate}%</span>
+                <div className="relative z-10">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="p-3 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 shadow-xl shadow-amber-500/50">
+                      <Trophy className="w-6 h-6 text-white" />
+                    </div>
+                    <span className="text-xs font-black uppercase tracking-widest text-amber-400">Unggul Sementara</span>
                   </div>
-                  <div className="w-full bg-zinc-200 rounded-full h-1.5">
-                    <div
-                      className="bg-zinc-800 h-full rounded-full transition-all duration-700"
-                      style={{ width: `${cls.participation_rate}%` }}
-                    />
+                  <h4 className="text-3xl font-black mb-2 tracking-tight">{leader.chairman_name}</h4>
+                  <p className="text-slate-400 text-sm mb-8 font-bold">Paslon {leader.order_number}</p>
+                  
+                  <div className="flex items-end justify-between pt-8 border-t border-white/10">
+                    <div>
+                      <p className="text-5xl font-black text-white">{leader.percentage}<span className="text-2xl text-slate-500 font-bold">%</span></p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-1">Perolehan</p>
+                      <p className="text-2xl font-black text-white">{leader.vote_count} Suara</p>
+                    </div>
                   </div>
                 </div>
               </div>
-            ))}
+            )}
+
+            {/* Detailed Composition */}
+            <div className="bg-white border border-slate-200/60 shadow-2xl shadow-slate-200/50 rounded-[2rem] p-8">
+              <h3 className="text-sm font-black text-slate-900 mb-8 uppercase tracking-widest flex items-center gap-3">
+                <div className="w-2.5 h-2.5 rounded-full bg-indigo-500 shadow-lg shadow-indigo-500/50"></div>
+                Proporsi Suara
+              </h3>
+              <div className="space-y-7">
+                {stats?.votesByCandidate.map((candidate, idx) => (
+                  <div key={candidate.id} className="group">
+                    <div className="flex justify-between items-center mb-3">
+                      <div className="flex items-center gap-3">
+                        <div 
+                          className="w-4 h-4 rounded-full shadow-lg" 
+                          style={{ backgroundColor: chartSolidColors[idx % chartSolidColors.length], boxShadow: `0 0 12px ${chartSolidColors[idx % chartSolidColors.length]}40` }} 
+                        />
+                        <span className="text-sm font-black text-slate-700">Paslon {candidate.order_number}</span>
+                      </div>
+                      <span className="text-base font-black text-slate-900">{candidate.percentage}%</span>
+                    </div>
+                    <div className="w-full bg-slate-100 rounded-full h-3.5 overflow-hidden">
+                      <div 
+                        className="h-full rounded-full transition-all duration-1000 ease-out relative overflow-hidden"
+                        style={{ 
+                          width: `${candidate.percentage}%`, 
+                          backgroundColor: chartSolidColors[idx % chartSolidColors.length]
+                        }}
+                      >
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </section>
-      )}
 
+        {/* Class Leaderboard */}
+        {stats?.votesByClass && stats.votesByClass.length > 0 && (
+          <section className="bg-white border border-slate-200/60 shadow-2xl shadow-slate-200/50 rounded-[2rem] overflow-hidden relative">
+            <div className="absolute top-0 left-0 w-96 h-96 bg-indigo-50 rounded-full blur-3xl opacity-50"></div>
+            
+            <div className="relative z-10 p-8 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-2xl bg-gradient-to-br from-indigo-50 to-violet-50 border border-indigo-100">
+                  <LayoutGrid className="w-6 h-6 text-indigo-600" />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-black text-slate-900">Partisipasi Per Kelas</h3>
+                  <p className="text-sm text-slate-500 mt-1 font-medium">Tingkat keaktifan pemilih dari setiap kelas</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="relative z-10 p-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              {stats.votesByClass.map((cls, idx) => {
+                const isTop3 = idx < 3;
+                const medalColors = [
+                  "from-amber-400 to-yellow-500",
+                  "from-slate-300 to-slate-400",
+                  "from-orange-400 to-amber-600"
+                ];
+                
+                return (
+                  <div key={cls.class_name} className={`flex flex-col p-6 rounded-2xl border transition-all duration-300 group hover:-translate-y-2 ${isTop3 ? 'bg-gradient-to-br from-slate-50 to-white border-slate-200 shadow-xl' : 'bg-white border-slate-200/60 hover:bg-slate-50 hover:shadow-lg'}`}>
+                    <div className="flex justify-between items-start mb-6">
+                      <div className="flex items-center gap-3">
+                        {isTop3 ? (
+                          <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${medalColors[idx]} flex items-center justify-center text-white font-black text-xl shadow-xl`}>
+                            {idx + 1}
+                          </div>
+                        ) : (
+                          <div className="w-14 h-14 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center text-base font-black text-slate-600">
+                            {idx + 1}
+                          </div>
+                        )}
+                        <span className="font-black text-slate-900 text-xl">{cls.class_name}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-auto">
+                      <div className="flex justify-between items-center mb-4">
+                        <span className="text-xs font-black text-slate-500 uppercase tracking-wider">Total Suara</span>
+                        <span className="text-3xl font-black text-slate-900">{cls.total_votes}</span>
+                      </div>
+                      <div className="flex justify-between text-xs text-slate-500 mb-2.5">
+                        <span className="font-bold">Partisipasi</span>
+                        <span className="font-black text-indigo-600">{cls.participation_rate}%</span>
+                      </div>
+                      <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
+                        <div
+                          className="bg-gradient-to-r from-indigo-500 to-violet-500 h-full rounded-full transition-all duration-1000 ease-out shadow-lg shadow-indigo-500/30"
+                          style={{ width: `${cls.participation_rate}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+      </div>
+    </div>
+  );
+}
+
+// Helper component for Stat Cards
+function StatCard({ icon, gradient, shadowColor, value, label }: { icon: ReactNode, gradient: string, shadowColor: string, value: number | undefined, label: string }) {
+  return (
+    <div className="bg-white border border-slate-200/60 shadow-2xl shadow-slate-200/50 flex flex-col justify-between p-6 rounded-[2rem] hover:shadow-3xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden group">
+      <div className="absolute top-0 right-0 w-40 h-40 bg-slate-50 rounded-full blur-2xl group-hover:bg-slate-100 transition-colors"></div>
+      <div className="relative z-10">
+        <div className="flex items-center justify-between mb-5">
+          <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${gradient} flex items-center justify-center shadow-lg ${shadowColor}`}>
+            {icon}
+          </div>
+        </div>
+        <div>
+          <p className="text-4xl font-black text-slate-900 tracking-tight">{value}</p>
+          <p className="text-[10px] font-black text-slate-500 mt-3 uppercase tracking-widest">{label}</p>
+        </div>
+      </div>
     </div>
   );
 }

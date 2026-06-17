@@ -6,13 +6,10 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -25,13 +22,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Megaphone,
   Search,
   Plus,
@@ -40,32 +30,33 @@ import {
   Eye,
   Target,
   Image as ImageIcon,
-  Upload,
   X,
   Users,
+  Award,
+  UserCircle,
+  Sparkles,
+  Briefcase,
 } from "lucide-react";
 import Image from "next/image";
 
 interface ClassData {
-  id: number;
+  id: string;
   name: string;
 }
 
 interface Candidate {
-  id: number;
-  order_number: string;
+  id: string;
+  order_number: number;
   chairman_name: string;
-  chairman_photo: string;
-  chairman_class_id: number | null;
   vice_chairman_name: string;
-  vice_chairman_photo: string;
-  vice_chairman_class_id: number | null;
   vision: string;
-  mission: string;
+  missions: string[];
+  photo_urls: {
+    chairman: string;
+    vice_chairman: string;
+  };
   created_at: string;
   vote_count?: number;
-  chairman_class_name?: string;
-  vice_chairman_class_name?: string;
 }
 
 export default function KandidatPage() {
@@ -86,9 +77,7 @@ export default function KandidatPage() {
   const [formData, setFormData] = useState({
     order_number: "",
     chairman_name: "",
-    chairman_class_id: "",
     vice_chairman_name: "",
-    vice_chairman_class_id: "",
     vision: "",
   });
   const [missions, setMissions] = useState<string[]>([""]);
@@ -129,32 +118,9 @@ export default function KandidatPage() {
             .select("*", { count: "exact", head: true })
             .eq("candidate_id", c.id);
 
-          let chairmanClassName = "";
-          let viceClassName = "";
-
-          if (c.chairman_class_id) {
-            const { data: cls } = await supabase
-              .from("classes")
-              .select("name")
-              .eq("id", c.chairman_class_id)
-              .single();
-            chairmanClassName = cls?.name || "";
-          }
-
-          if (c.vice_chairman_class_id) {
-            const { data: cls } = await supabase
-              .from("classes")
-              .select("name")
-              .eq("id", c.vice_chairman_class_id)
-              .single();
-            viceClassName = cls?.name || "";
-          }
-
           return {
             ...c,
             vote_count: count || 0,
-            chairman_class_name: chairmanClassName,
-            vice_chairman_class_name: viceClassName,
           };
         })
       );
@@ -201,15 +167,20 @@ export default function KandidatPage() {
         .from("candidates")
         .upload(filePath, file, { upsert: true });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error("Upload error:", uploadError);
+        alert(`Gagal upload foto: ${uploadError.message}\n\nPastikan bucket "candidates" sudah dibuat di Supabase Storage.`);
+        return null;
+      }
 
       const { data } = supabase.storage
         .from("candidates")
         .getPublicUrl(filePath);
 
       return data.publicUrl;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error upload:", error);
+      alert(`Error upload: ${error.message}`);
       return null;
     } finally {
       setUploading(false);
@@ -243,41 +214,38 @@ export default function KandidatPage() {
     setSaving(true);
 
     try {
-      // FIX: Preserve foto lama jika tidak ada foto baru
       let chairmanPhotoUrl = "";
       let vicePhotoUrl = "";
 
       if (chairmanPhoto) {
-        // Ada foto baru, upload
         const url = await uploadPhoto(chairmanPhoto, "chairman");
         if (url) chairmanPhotoUrl = url;
-      } else if (isEdit && selectedCandidate?.chairman_photo) {
-        // Tidak ada foto baru, pakai foto lama
-        chairmanPhotoUrl = selectedCandidate.chairman_photo;
+      } else if (isEdit && selectedCandidate?.photo_urls?.chairman) {
+        chairmanPhotoUrl = selectedCandidate.photo_urls.chairman;
       }
 
       if (vicePhoto) {
-        // Ada foto baru, upload
         const url = await uploadPhoto(vicePhoto, "vice");
         if (url) vicePhotoUrl = url;
-      } else if (isEdit && selectedCandidate?.vice_chairman_photo) {
-        // Tidak ada foto baru, pakai foto lama
-        vicePhotoUrl = selectedCandidate.vice_chairman_photo;
+      } else if (isEdit && selectedCandidate?.photo_urls?.vice_chairman) {
+        vicePhotoUrl = selectedCandidate.photo_urls.vice_chairman;
       }
 
-      const missionText = missions.filter(m => m.trim()).join("\n");
+      const missionsArray = missions.filter(m => m.trim());
 
       const candidateData = {
-        order_number: formData.order_number.trim(),
+        order_number: parseInt(formData.order_number.trim()),
         chairman_name: formData.chairman_name.trim(),
-        chairman_photo: chairmanPhotoUrl,
-        chairman_class_id: formData.chairman_class_id ? parseInt(formData.chairman_class_id) : null,
         vice_chairman_name: formData.vice_chairman_name.trim(),
-        vice_chairman_photo: vicePhotoUrl,
-        vice_chairman_class_id: formData.vice_chairman_class_id ? parseInt(formData.vice_chairman_class_id) : null,
         vision: formData.vision.trim(),
-        mission: missionText,
+        missions: missionsArray,
+        photo_urls: {
+          chairman: chairmanPhotoUrl,
+          vice_chairman: vicePhotoUrl,
+        },
       };
+
+      console.log("Saving candidate data:", candidateData);
 
       let error;
       if (isEdit && selectedCandidate) {
@@ -291,12 +259,17 @@ export default function KandidatPage() {
         error = res.error;
       }
 
-      if (error) throw error;
+      if (error) {
+        console.error("Database error:", error);
+        throw new Error(error.message || "Gagal menyimpan data");
+      }
 
       await fetchCandidates();
       resetForm();
+      alert("Data berhasil disimpan!");
     } catch (err: any) {
-      alert("Gagal menyimpan: " + err.message);
+      console.error("Save error:", err);
+      alert(`Gagal menyimpan: ${err.message}`);
     }
 
     setSaving(false);
@@ -308,7 +281,6 @@ export default function KandidatPage() {
     setSaving(true);
 
     try {
-      // FIX: Hapus votes dulu sebelum hapus kandidat
       const { error: votesError } = await supabase
         .from("votes")
         .delete()
@@ -319,21 +291,19 @@ export default function KandidatPage() {
         throw votesError;
       }
 
-      // Hapus foto dari storage
-      if (selectedCandidate.chairman_photo?.includes("candidates")) {
-        const path = selectedCandidate.chairman_photo.split("/candidates/")[1];
+      if (selectedCandidate.photo_urls?.chairman?.includes("candidates")) {
+        const path = selectedCandidate.photo_urls.chairman.split("/candidates/")[1];
         if (path) {
           await supabase.storage.from("candidates").remove([path]);
         }
       }
-      if (selectedCandidate.vice_chairman_photo?.includes("candidates")) {
-        const path = selectedCandidate.vice_chairman_photo.split("/candidates/")[1];
+      if (selectedCandidate.photo_urls?.vice_chairman?.includes("candidates")) {
+        const path = selectedCandidate.photo_urls.vice_chairman.split("/candidates/")[1];
         if (path) {
           await supabase.storage.from("candidates").remove([path]);
         }
       }
 
-      // Baru hapus kandidat
       const { error: candidateError } = await supabase
         .from("candidates")
         .delete()
@@ -344,6 +314,7 @@ export default function KandidatPage() {
       await fetchCandidates();
       setIsDeleteOpen(false);
       setSelectedCandidate(null);
+      alert("Data berhasil dihapus!");
     } catch (err: any) {
       alert("Gagal menghapus: " + err.message);
     }
@@ -361,16 +332,14 @@ export default function KandidatPage() {
     setIsEdit(true);
     setSelectedCandidate(candidate);
     setFormData({
-      order_number: candidate.order_number || "",
+      order_number: candidate.order_number?.toString() || "",
       chairman_name: candidate.chairman_name || "",
-      chairman_class_id: candidate.chairman_class_id?.toString() || "",
       vice_chairman_name: candidate.vice_chairman_name || "",
-      vice_chairman_class_id: candidate.vice_chairman_class_id?.toString() || "",
       vision: candidate.vision || "",
     });
-    setMissions(candidate.mission ? candidate.mission.split("\n").filter((m: string) => m.trim()) : [""]);
-    setChairmanPhotoPreview(candidate.chairman_photo || "");
-    setVicePhotoPreview(candidate.vice_chairman_photo || "");
+    setMissions(candidate.missions && candidate.missions.length > 0 ? candidate.missions : [""]);
+    setChairmanPhotoPreview(candidate.photo_urls?.chairman || "");
+    setVicePhotoPreview(candidate.photo_urls?.vice_chairman || "");
     setChairmanPhoto(null);
     setVicePhoto(null);
     setIsFormOpen(true);
@@ -390,9 +359,7 @@ export default function KandidatPage() {
     setFormData({
       order_number: "",
       chairman_name: "",
-      chairman_class_id: "",
       vice_chairman_name: "",
-      vice_chairman_class_id: "",
       vision: "",
     });
     setMissions([""]);
@@ -407,233 +374,260 @@ export default function KandidatPage() {
   const filteredCandidates = candidates.filter((c) =>
     c.chairman_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     c.vice_chairman_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    c.order_number.toLowerCase().includes(searchQuery.toLowerCase())
+    c.order_number.toString().includes(searchQuery)
   );
 
   if (loading) {
     return (
       <div className="p-6 flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="relative">
+          <div className="absolute inset-0 rounded-full bg-indigo-500/20 blur-3xl animate-pulse"></div>
+          <div className="animate-spin rounded-full h-16 w-16 border-4 border-slate-200 border-t-indigo-600"></div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-8 space-y-10">
       {/* Header */}
-      <div className="flex justify-between items-start">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Megaphone className="w-7 h-7 text-blue-600" />
-            Manajemen Paslon
+      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 pb-8 border-b-2 border-slate-200">
+        <div className="space-y-3">
+          <div className="inline-flex items-center gap-3 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 shadow-xl shadow-indigo-500/30">
+            <Megaphone className="w-5 h-5 text-white" />
+            <span className="text-sm font-black text-white uppercase tracking-widest">Manajemen Kandidat</span>
+          </div>
+          <h1 className="text-6xl font-black text-slate-900 tracking-tight">
+            Pasangan Calon
           </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Kelola data terintegrasi Pasangan Calon Ketua OSIS.
+          <p className="text-xl text-slate-600 font-medium max-w-2xl">
+            Kelola data terintegrasi Pasangan Calon Ketua OSIS dengan mudah dan efisien
           </p>
         </div>
         <Button
           onClick={openAdd}
-          className="bg-blue-600 hover:bg-blue-700"
+          className="bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-black px-10 py-7 rounded-3xl shadow-2xl shadow-indigo-500/40 active:scale-95 transition-all text-lg"
         >
-          <Plus className="mr-2 h-4 w-4" /> Tambah Paslon
+          <Plus className="mr-3 h-6 w-6" /> Tambah Paslon
         </Button>
       </div>
 
-      {/* Table Card */}
-      <Card>
-        <CardContent className="p-6">
-          <div className="relative mb-6">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+      {/* Search & Stats */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="lg:col-span-3 bg-white border-2 border-slate-200 shadow-2xl shadow-slate-200/50 rounded-3xl p-3">
+          <div className="relative">
+            <Search className="absolute left-5 top-1/2 transform -translate-y-1/2 w-6 h-6 text-slate-400" />
             <Input
-              placeholder="Cari nama paslon..."
+              placeholder="Cari nama paslon atau nomor urut..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 max-w-md"
+              className="pl-16 h-16 text-lg font-medium border-0 rounded-2xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 bg-slate-50"
             />
           </div>
+        </div>
+        <div className="bg-gradient-to-br from-indigo-600 via-violet-600 to-purple-600 rounded-3xl p-8 shadow-2xl shadow-indigo-500/40 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-0 left-0 w-40 h-40 bg-white/10 rounded-full blur-3xl"></div>
+          <div className="relative z-10">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-xl flex items-center justify-center border-2 border-white/30">
+                <Users className="w-7 h-7 text-white" />
+              </div>
+              <span className="text-xs font-black text-white/90 uppercase tracking-widest">Total</span>
+            </div>
+            <p className="text-6xl font-black text-white tracking-tight">{candidates.length}</p>
+            <p className="text-base text-white/90 font-bold mt-2">Pasangan Kandidat</p>
+          </div>
+        </div>
+      </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-slate-200">
-                  <th className="text-left py-3 px-4 font-semibold text-slate-600 text-sm w-20">
-                    No.
-                  </th>
-                  <th className="text-left py-3 px-4 font-semibold text-slate-600 text-sm">
-                    Kandidat & Asal Kelas
-                  </th>
-                  <th className="text-left py-3 px-4 font-semibold text-slate-600 text-sm">
-                    Visi Utama
-                  </th>
-                  <th className="text-left py-3 px-4 font-semibold text-slate-600 text-sm">
-                    Misi
-                  </th>
-                  <th className="text-right py-3 px-4 font-semibold text-slate-600 text-sm">
-                    Aksi
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredCandidates.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="text-center py-12 text-slate-500">
-                      Belum ada paslon terdaftar
-                    </td>
-                  </tr>
-                ) : (
-                  filteredCandidates.map((candidate) => {
-                    const missionCount = candidate.mission
-                      ? candidate.mission.split("\n").filter((m: string) => m.trim()).length
-                      : 0;
+      {/* Candidate Cards Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+        {filteredCandidates.length === 0 ? (
+          <div className="col-span-full bg-white border-2 border-slate-200 shadow-2xl shadow-slate-200/50 rounded-3xl p-20 text-center">
+            <div className="w-24 h-24 mx-auto rounded-3xl bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center mb-8">
+              <Users className="w-12 h-12 text-slate-400" />
+            </div>
+            <p className="text-2xl font-bold text-slate-700 mb-3">Belum ada paslon terdaftar</p>
+            <p className="text-base text-slate-500">Klik tombol "Tambah Paslon" untuk menambahkan kandidat baru</p>
+          </div>
+        ) : (
+          filteredCandidates.map((candidate) => {
+            const missionCount = candidate.missions?.length || 0;
 
-                    return (
-                      <tr
-                        key={candidate.id}
-                        className="border-b border-slate-100 hover:bg-slate-50 transition-colors"
+            return (
+              <div
+                key={candidate.id}
+                className="bg-white border-2 border-slate-200 shadow-2xl shadow-slate-200/50 rounded-3xl overflow-hidden hover:shadow-3xl hover:-translate-y-2 transition-all duration-300 group"
+              >
+                {/* Header with Order Number */}
+                <div className="relative bg-gradient-to-br from-indigo-600 via-violet-600 to-purple-600 p-8 pb-20">
+                  <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full blur-3xl"></div>
+                  <div className="relative z-10 flex items-start justify-between">
+                    <div className="w-20 h-20 rounded-2xl bg-white/20 backdrop-blur-xl flex items-center justify-center border-2 border-white/30 shadow-2xl">
+                      <span className="text-3xl font-black text-white">
+                        {candidate.order_number.toString().padStart(2, "0")}
+                      </span>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => openDetail(candidate)}
+                        className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-xl flex items-center justify-center text-white hover:bg-white/30 transition-colors border-2 border-white/30"
+                        title="Lihat Detail"
                       >
-                        <td className="py-4 px-4">
-                          <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-md">
-                            {candidate.order_number.padStart(2, "0")}
-                          </div>
-                        </td>
-                        <td className="py-4 px-4">
-                          <div className="space-y-3">
-                            <div className="flex items-center gap-3">
-                              <div className="relative w-12 h-12 rounded-full overflow-hidden bg-slate-200 shrink-0 border-2 border-white shadow-sm">
-                                {candidate.chairman_photo ? (
-                                  <Image
-                                    src={candidate.chairman_photo}
-                                    alt="Ketua"
-                                    fill
-                                    sizes="48px"
-                                    className="object-cover"
-                                    unoptimized
-                                  />
-                                ) : (
-                                  <div className="w-full h-full flex items-center justify-center text-slate-400">
-                                    <ImageIcon className="w-5 h-5" />
-                                  </div>
-                                )}
-                              </div>
-                              <div>
-                                <p className="font-semibold text-slate-900 text-sm">
-                                  {candidate.chairman_name}
-                                </p>
-                                {candidate.chairman_class_name && (
-                                  <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 text-xs font-medium mt-0.5">
-                                    <Users className="w-3 h-3" />
-                                    {candidate.chairman_class_name} (Ketua)
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-3 ml-4 pl-4 border-l-2 border-slate-200">
-                              <div className="relative w-12 h-12 rounded-full overflow-hidden bg-slate-200 shrink-0 border-2 border-white shadow-sm">
-                                {candidate.vice_chairman_photo ? (
-                                  <Image
-                                    src={candidate.vice_chairman_photo}
-                                    alt="Wakil"
-                                    fill
-                                    sizes="48px"
-                                    className="object-cover"
-                                    unoptimized
-                                  />
-                                ) : (
-                                  <div className="w-full h-full flex items-center justify-center text-slate-400">
-                                    <ImageIcon className="w-5 h-5" />
-                                  </div>
-                                )}
-                              </div>
-                              <div>
-                                <p className="font-semibold text-slate-900 text-sm">
-                                  {candidate.vice_chairman_name}
-                                </p>
-                                {candidate.vice_chairman_class_name && (
-                                  <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-xs font-medium mt-0.5">
-                                    <Users className="w-3 h-3" />
-                                    {candidate.vice_chairman_class_name} (Wakil)
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="py-4 px-4 text-sm text-slate-600 max-w-xs">
-                          {candidate.vision || "-"}
-                        </td>
-                        <td className="py-4 px-4">
-                          {missionCount > 0 ? (
-                            <span className="inline-flex items-center px-3 py-1 rounded-full bg-green-50 text-green-700 text-xs font-semibold border border-green-200">
-                              {missionCount} Program
-                            </span>
-                          ) : (
-                            <span className="text-slate-400 text-sm">-</span>
-                          )}
-                        </td>
-                        <td className="py-4 px-4">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => openDetail(candidate)}
-                              className="text-slate-600 hover:text-blue-600 hover:bg-blue-50"
-                              title="Lihat Detail"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => openEdit(candidate)}
-                              className="text-slate-600 hover:text-amber-600 hover:bg-amber-50"
-                              title="Edit"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => openDelete(candidate)}
-                              className="text-slate-600 hover:text-red-600 hover:bg-red-50"
-                              title="Hapus"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+                        <Eye className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={() => openEdit(candidate)}
+                        className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-xl flex items-center justify-center text-white hover:bg-white/30 transition-colors border-2 border-white/30"
+                        title="Edit"
+                      >
+                        <Edit className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={() => openDelete(candidate)}
+                        className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-xl flex items-center justify-center text-white hover:bg-red-500/50 transition-colors border-2 border-white/30"
+                        title="Hapus"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
 
-          <div className="mt-4 pt-4 border-t border-slate-100">
-            <p className="text-sm text-slate-500">
-              Total: {filteredCandidates.length} pasangan kandidat terdaftar.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+                {/* Photos */}
+                <div className="px-8 -mt-12 relative z-10">
+                  <div className="flex gap-4">
+                    <div className="flex-1 aspect-square rounded-2xl overflow-hidden border-4 border-white shadow-2xl bg-slate-100 relative group/img">
+                      {candidate.photo_urls?.chairman ? (
+                        <Image
+                          src={candidate.photo_urls.chairman}
+                          alt="Ketua"
+                          fill
+                          className="object-cover group-hover/img:scale-110 transition-transform duration-500"
+                          unoptimized
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-slate-400">
+                          <UserCircle className="w-16 h-16" />
+                        </div>
+                      )}
+                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-slate-900/90 to-transparent p-4 pt-12">
+                        <span className="text-white text-xs font-black uppercase tracking-widest">
+                          Ketua
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex-1 aspect-square rounded-2xl overflow-hidden border-4 border-white shadow-2xl bg-slate-100 relative group/img">
+                      {candidate.photo_urls?.vice_chairman ? (
+                        <Image
+                          src={candidate.photo_urls.vice_chairman}
+                          alt="Wakil"
+                          fill
+                          className="object-cover group-hover/img:scale-110 transition-transform duration-500"
+                          unoptimized
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-slate-400">
+                          <UserCircle className="w-16 h-16" />
+                        </div>
+                      )}
+                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-slate-900/90 to-transparent p-4 pt-12">
+                        <span className="text-white text-xs font-black uppercase tracking-widest">
+                          Wakil
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Content */}
+                <div className="p-8 space-y-6">
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-xs font-black text-indigo-600 uppercase tracking-widest mb-2">Calon Ketua</p>
+                      <p className="font-black text-slate-900 text-2xl leading-tight">
+                        {candidate.chairman_name}
+                      </p>
+                    </div>
+                    <div className="pt-4 border-t-2 border-slate-100">
+                      <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Calon Wakil</p>
+                      <p className="font-black text-slate-900 text-2xl leading-tight">
+                        {candidate.vice_chairman_name}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Stats */}
+                  <div className="grid grid-cols-2 gap-4 pt-6 border-t-2 border-slate-100">
+                    <div className="bg-gradient-to-br from-indigo-50 to-violet-50 rounded-2xl p-5 border-2 border-indigo-100">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Target className="w-5 h-5 text-indigo-600" />
+                        <span className="text-xs font-black text-indigo-700 uppercase tracking-wider">Misi</span>
+                      </div>
+                      <p className="text-3xl font-black text-indigo-600">{missionCount}</p>
+                    </div>
+                    <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl p-5 border-2 border-emerald-100">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Award className="w-5 h-5 text-emerald-600" />
+                        <span className="text-xs font-black text-emerald-700 uppercase tracking-wider">Suara</span>
+                      </div>
+                      <p className="text-3xl font-black text-emerald-600">{candidate.vote_count || 0}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
 
       {/* Dialog Form Tambah/Edit */}
       <Dialog open={isFormOpen} onOpenChange={(open) => { if (!open) resetForm(); }}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {isEdit ? "Edit Data Paslon" : "Registrasi Paslon Baru"}
-            </DialogTitle>
-            <DialogDescription>
-              {isEdit
-                ? "Ubah data pasangan calon yang sudah ada."
-                : "Lengkapi informasi untuk menambahkan kandidat baru."}
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent
+          className="w-full max-h-[95vh] overflow-y-auto rounded-3xl border-2 border-slate-200 shadow-2xl"
+          style={{
+            maxWidth: '95vw',
+            width: '95vw',
+            padding: 0,
+          }}
+        >
+          <DialogTitle className="sr-only">
+            {isEdit ? "Edit Data Paslon" : "Registrasi Paslon Baru"}
+          </DialogTitle>
+          
+          {/* Header */}
+          <div className="sticky top-0 bg-white border-b-2 border-slate-100 p-8 z-10 rounded-t-3xl">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-5">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center shadow-xl shadow-indigo-500/30">
+                  {isEdit ? <Edit className="w-7 h-7 text-white" /> : <Plus className="w-7 h-7 text-white" />}
+                </div>
+                <div>
+                  <h2 className="text-4xl font-black text-slate-900">
+                    {isEdit ? "Edit Data Paslon" : "Registrasi Paslon Baru"}
+                  </h2>
+                  <p className="text-lg text-slate-500 font-medium mt-2">
+                    {isEdit
+                      ? "Ubah data pasangan calon yang sudah ada"
+                      : "Lengkapi informasi untuk menambahkan kandidat baru"}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => resetForm()}
+                className="w-12 h-12 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors"
+              >
+                <X className="w-6 h-6 text-slate-600" />
+              </button>
+            </div>
+          </div>
 
-          <div className="space-y-6 pt-4">
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-700 uppercase tracking-wide">
+          {/* Body */}
+          <div className="p-10 space-y-10">
+            {/* Nomor Urut */}
+            <div className="bg-gradient-to-br from-indigo-50 via-violet-50 to-purple-50 rounded-3xl p-8 border-2 border-indigo-100">
+              <label className="text-sm font-black text-indigo-900 uppercase tracking-widest mb-4 block">
                 Nomor Urut
               </label>
               <Input
@@ -641,36 +635,44 @@ export default function KandidatPage() {
                 placeholder="Contoh: 1"
                 value={formData.order_number}
                 onChange={(e) => setFormData({ ...formData, order_number: e.target.value })}
-                className="max-w-xs"
+                className="h-16 text-2xl font-bold border-2 border-indigo-200 rounded-2xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 bg-white"
                 min="1"
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 rounded-xl p-5 border border-slate-200">
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 pb-2 border-b border-slate-200">
-                  <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold">
+            {/* Calon Ketua dan Wakil */}
+            <div className="grid grid-cols-2 gap-8">
+              {/* Calon Ketua */}
+              <div className="bg-gradient-to-br from-indigo-50/70 via-violet-50/70 to-purple-50/70 rounded-3xl p-8 border-2 border-indigo-200 space-y-6">
+                <div className="flex items-center gap-4 pb-6 border-b-2 border-indigo-200">
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center text-white font-black text-2xl shadow-xl shadow-indigo-500/30">
                     K
                   </div>
-                  <span className="text-sm font-semibold text-slate-700">Calon Ketua</span>
+                  <div>
+                    <span className="text-2xl font-black text-slate-900 block">Calon Ketua</span>
+                    <span className="text-sm text-slate-500 font-medium">Lengkapi data calon ketua</span>
+                  </div>
                 </div>
 
                 <div className="flex justify-center">
                   <label className="relative cursor-pointer group">
-                    <div className="w-28 h-28 rounded-xl border-2 border-dashed border-slate-300 bg-white flex flex-col items-center justify-center gap-1 hover:border-blue-400 hover:bg-blue-50 transition-colors overflow-hidden">
+                    <div className="w-48 h-48 rounded-3xl border-4 border-dashed border-indigo-300 bg-white flex flex-col items-center justify-center gap-4 hover:border-indigo-500 hover:bg-indigo-50 transition-all overflow-hidden shadow-2xl">
                       {chairmanPhotoPreview ? (
                         <Image
                           src={chairmanPhotoPreview}
                           alt="Preview Ketua"
-                          width={112}
-                          height={112}
+                          width={192}
+                          height={192}
                           className="object-cover w-full h-full"
                           unoptimized
                         />
                       ) : (
                         <>
-                          <ImageIcon className="w-8 h-8 text-slate-400" />
-                          <span className="text-xs text-slate-500">Upload Foto Baru</span>
+                          <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-indigo-100 to-violet-100 flex items-center justify-center">
+                            <ImageIcon className="w-10 h-10 text-indigo-600" />
+                          </div>
+                          <span className="text-base font-bold text-indigo-600">Upload Foto</span>
+                          <span className="text-xs text-slate-400">Max 5MB</span>
                         </>
                       )}
                     </div>
@@ -683,53 +685,52 @@ export default function KandidatPage() {
                   </label>
                 </div>
 
-                <Input
-                  placeholder="Nama Lengkap Ketua"
-                  value={formData.chairman_name}
-                  onChange={(e) => setFormData({ ...formData, chairman_name: e.target.value })}
-                />
-
-                <Select
-                  value={formData.chairman_class_id}
-                  onValueChange={(val) => setFormData({ ...formData, chairman_class_id: val })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Pilih Kelas..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {classes.map((cls) => (
-                      <SelectItem key={cls.id} value={cls.id.toString()}>
-                        {cls.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="space-y-5">
+                  <div>
+                    <label className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-3 block">
+                      Nama Lengkap
+                    </label>
+                    <Input
+                      placeholder="Masukkan nama lengkap calon ketua"
+                      value={formData.chairman_name}
+                      onChange={(e) => setFormData({ ...formData, chairman_name: e.target.value })}
+                      className="h-16 text-lg border-2 border-slate-200 rounded-2xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20"
+                    />
+                  </div>
+                </div>
               </div>
 
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 pb-2 border-b border-slate-200">
-                  <div className="w-6 h-6 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-xs font-bold">
+              {/* Calon Wakil */}
+              <div className="bg-gradient-to-br from-slate-50 via-slate-100 to-slate-50 rounded-3xl p-8 border-2 border-slate-200 space-y-6">
+                <div className="flex items-center gap-4 pb-6 border-b-2 border-slate-200">
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-slate-700 to-slate-600 flex items-center justify-center text-white font-black text-2xl shadow-xl">
                     W
                   </div>
-                  <span className="text-sm font-semibold text-slate-700">Calon Wakil</span>
+                  <div>
+                    <span className="text-2xl font-black text-slate-900 block">Calon Wakil</span>
+                    <span className="text-sm text-slate-500 font-medium">Lengkapi data calon wakil</span>
+                  </div>
                 </div>
 
                 <div className="flex justify-center">
                   <label className="relative cursor-pointer group">
-                    <div className="w-28 h-28 rounded-xl border-2 border-dashed border-slate-300 bg-white flex flex-col items-center justify-center gap-1 hover:border-blue-400 hover:bg-blue-50 transition-colors overflow-hidden">
+                    <div className="w-48 h-48 rounded-3xl border-4 border-dashed border-slate-300 bg-white flex flex-col items-center justify-center gap-4 hover:border-slate-500 hover:bg-slate-50 transition-all overflow-hidden shadow-2xl">
                       {vicePhotoPreview ? (
                         <Image
                           src={vicePhotoPreview}
                           alt="Preview Wakil"
-                          width={112}
-                          height={112}
+                          width={192}
+                          height={192}
                           className="object-cover w-full h-full"
                           unoptimized
                         />
                       ) : (
                         <>
-                          <ImageIcon className="w-8 h-8 text-slate-400" />
-                          <span className="text-xs text-slate-500">Upload Foto Baru</span>
+                          <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center">
+                            <ImageIcon className="w-10 h-10 text-slate-600" />
+                          </div>
+                          <span className="text-base font-bold text-slate-600">Upload Foto</span>
+                          <span className="text-xs text-slate-400">Max 5MB</span>
                         </>
                       )}
                     </div>
@@ -742,74 +743,74 @@ export default function KandidatPage() {
                   </label>
                 </div>
 
-                <Input
-                  placeholder="Nama Lengkap Wakil"
-                  value={formData.vice_chairman_name}
-                  onChange={(e) => setFormData({ ...formData, vice_chairman_name: e.target.value })}
-                />
-
-                <Select
-                  value={formData.vice_chairman_class_id}
-                  onValueChange={(val) => setFormData({ ...formData, vice_chairman_class_id: val })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Pilih Kelas..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {classes.map((cls) => (
-                      <SelectItem key={cls.id} value={cls.id.toString()}>
-                        {cls.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="space-y-5">
+                  <div>
+                    <label className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-3 block">
+                      Nama Lengkap
+                    </label>
+                    <Input
+                      placeholder="Masukkan nama lengkap calon wakil"
+                      value={formData.vice_chairman_name}
+                      onChange={(e) => setFormData({ ...formData, vice_chairman_name: e.target.value })}
+                      className="h-16 text-lg border-2 border-slate-200 rounded-2xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-700 uppercase tracking-wide">
-                Visi
-              </label>
+            {/* Visi */}
+            <div className="bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 rounded-3xl p-8 border-2 border-amber-100">
+              <div className="flex items-center gap-3 mb-4">
+                <Sparkles className="w-6 h-6 text-amber-600" />
+                <label className="text-sm font-black text-amber-900 uppercase tracking-widest">
+                  Visi
+                </label>
+              </div>
               <textarea
-                className="w-full min-h-[80px] px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                className="w-full min-h-[160px] px-6 py-4 border-2 border-amber-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-amber-500/20 text-lg font-medium bg-white resize-none"
                 placeholder="Tuliskan visi utama paslon..."
                 value={formData.vision}
                 onChange={(e) => setFormData({ ...formData, vision: e.target.value })}
               />
             </div>
 
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wide">
-                  Misi (Program Kerja)
-                </label>
+            {/* Misi */}
+            <div className="bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 rounded-3xl p-8 border-2 border-emerald-100">
+              <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center gap-3">
+                  <Briefcase className="w-6 h-6 text-emerald-600" />
+                  <label className="text-sm font-black text-emerald-900 uppercase tracking-widest">
+                    Misi (Program Kerja)
+                  </label>
+                </div>
                 <button
                   type="button"
                   onClick={addMission}
-                  className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+                  className="px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-base font-bold rounded-xl flex items-center gap-2 transition-all shadow-xl shadow-emerald-500/30"
                 >
-                  <Plus className="w-3 h-3" /> Tambah Misi
+                  <Plus className="w-5 h-5" /> Tambah Misi
                 </button>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-4">
                 {missions.map((mission, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-slate-500 w-6">
-                      {idx + 1}.
-                    </span>
+                  <div key={idx} className="flex items-center gap-5 group">
+                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-600 flex items-center justify-center text-white font-black text-lg shadow-xl shadow-emerald-500/30 shrink-0">
+                      {idx + 1}
+                    </div>
                     <Input
-                      placeholder={`Misi ke-${idx + 1}`}
+                      placeholder={`Tuliskan misi ke-${idx + 1}`}
                       value={mission}
                       onChange={(e) => updateMission(idx, e.target.value)}
-                      className="flex-1"
+                      className="flex-1 h-16 text-lg border-2 border-slate-200 rounded-2xl focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/20"
                     />
                     {missions.length > 1 && (
                       <button
                         type="button"
                         onClick={() => removeMission(idx)}
-                        className="text-slate-400 hover:text-red-600 transition-colors"
+                        className="w-14 h-14 rounded-2xl bg-red-50 text-red-600 hover:bg-red-100 flex items-center justify-center transition-colors border-2 border-red-200"
                       >
-                        <X className="w-4 h-4" />
+                        <X className="w-6 h-6" />
                       </button>
                     )}
                   </div>
@@ -817,13 +818,33 @@ export default function KandidatPage() {
               </div>
             </div>
 
-            <div className="flex justify-end pt-4 border-t border-slate-100">
+            {/* Action Buttons */}
+            <div className="flex justify-end gap-5 pt-8 border-t-2 border-slate-100">
+              <Button
+                onClick={() => resetForm()}
+                variant="outline"
+                className="px-10 py-5 rounded-2xl font-bold border-2 border-slate-200 hover:bg-slate-50 text-lg"
+              >
+                Batal
+              </Button>
               <Button
                 onClick={handleSave}
                 disabled={saving || uploading}
-                className="bg-blue-600 hover:bg-blue-700"
+                className="px-12 py-5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white rounded-2xl font-black shadow-2xl shadow-indigo-500/40 active:scale-95 transition-all disabled:opacity-50 text-lg"
               >
-                {uploading ? "Mengupload..." : saving ? "Menyimpan..." : "Simpan Data Kandidat"}
+                {uploading ? (
+                  <span className="flex items-center gap-3">
+                    <div className="w-6 h-6 border-3 border-white/30 border-t-white rounded-full animate-spin" />
+                    Mengupload...
+                  </span>
+                ) : saving ? (
+                  <span className="flex items-center gap-3">
+                    <div className="w-6 h-6 border-3 border-white/30 border-t-white rounded-full animate-spin" />
+                    Menyimpan...
+                  </span>
+                ) : (
+                  "Simpan Data"
+                )}
               </Button>
             </div>
           </div>
@@ -832,28 +853,39 @@ export default function KandidatPage() {
 
       {/* Dialog Detail Kandidat */}
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white text-lg font-bold">
-                {selectedCandidate?.order_number.padStart(2, "0")}
+        <DialogContent
+          className="w-full max-h-[90vh] overflow-y-auto rounded-3xl border-2 border-slate-200 shadow-2xl"
+          style={{
+            maxWidth: '90vw',
+            width: '90vw',
+            padding: 0,
+          }}
+        >
+          <DialogTitle className="sr-only">Detail Paslon</DialogTitle>
+          
+          <div className="sticky top-0 bg-white border-b-2 border-slate-100 p-8 z-10 rounded-t-3xl">
+            <div className="flex items-center gap-5">
+              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center shadow-xl shadow-indigo-500/30">
+                <span className="text-3xl font-black text-white">
+                  {selectedCandidate?.order_number.toString().padStart(2, "0")}
+                </span>
               </div>
               <div>
-                <div className="text-xl font-bold">Detail Paslon</div>
-                <div className="text-xs text-slate-500 font-normal">
+                <h2 className="text-3xl font-black text-slate-900">Detail Paslon</h2>
+                <p className="text-base text-slate-500 font-medium mt-2">
                   Pasangan calon nomor urut {selectedCandidate?.order_number}
-                </div>
+                </p>
               </div>
-            </DialogTitle>
-          </DialogHeader>
+            </div>
+          </div>
 
-          <div className="space-y-6 pt-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="text-center space-y-2">
-                <div className="aspect-square rounded-xl overflow-hidden bg-slate-100 relative">
-                  {selectedCandidate?.chairman_photo ? (
+          <div className="p-10 space-y-10">
+            <div className="grid grid-cols-2 gap-8">
+              <div className="text-center space-y-5">
+                <div className="aspect-square rounded-3xl overflow-hidden bg-slate-100 relative border-4 border-white shadow-2xl">
+                  {selectedCandidate?.photo_urls?.chairman ? (
                     <Image
-                      src={selectedCandidate.chairman_photo}
+                      src={selectedCandidate.photo_urls.chairman}
                       alt="Ketua"
                       fill
                       className="object-cover"
@@ -861,28 +893,22 @@ export default function KandidatPage() {
                     />
                   ) : (
                     <div className="flex items-center justify-center h-full text-slate-400">
-                      <ImageIcon className="w-12 h-12" />
+                      <UserCircle className="w-24 h-24" />
                     </div>
                   )}
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500 font-medium">CALON KETUA</p>
-                  <p className="font-bold text-slate-900">
+                  <p className="text-sm font-black text-indigo-600 uppercase tracking-widest mb-3">Calon Ketua</p>
+                  <p className="font-black text-slate-900 text-2xl">
                     {selectedCandidate?.chairman_name}
                   </p>
-                  {selectedCandidate?.chairman_class_name && (
-                    <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 text-xs font-medium mt-1">
-                      <Users className="w-3 h-3" />
-                      {selectedCandidate.chairman_class_name}
-                    </div>
-                  )}
                 </div>
               </div>
-              <div className="text-center space-y-2">
-                <div className="aspect-square rounded-xl overflow-hidden bg-slate-100 relative">
-                  {selectedCandidate?.vice_chairman_photo ? (
+              <div className="text-center space-y-5">
+                <div className="aspect-square rounded-3xl overflow-hidden bg-slate-100 relative border-4 border-white shadow-2xl">
+                  {selectedCandidate?.photo_urls?.vice_chairman ? (
                     <Image
-                      src={selectedCandidate.vice_chairman_photo}
+                      src={selectedCandidate.photo_urls.vice_chairman}
                       alt="Wakil"
                       fill
                       className="object-cover"
@@ -890,71 +916,69 @@ export default function KandidatPage() {
                     />
                   ) : (
                     <div className="flex items-center justify-center h-full text-slate-400">
-                      <ImageIcon className="w-12 h-12" />
+                      <UserCircle className="w-24 h-24" />
                     </div>
                   )}
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500 font-medium">CALON WAKIL</p>
-                  <p className="font-bold text-slate-900">
+                  <p className="text-sm font-black text-slate-600 uppercase tracking-widest mb-3">Calon Wakil</p>
+                  <p className="font-black text-slate-900 text-2xl">
                     {selectedCandidate?.vice_chairman_name}
                   </p>
-                  {selectedCandidate?.vice_chairman_class_name && (
-                    <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-xs font-medium mt-1">
-                      <Users className="w-3 h-3" />
-                      {selectedCandidate.vice_chairman_class_name}
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
 
             {selectedCandidate?.vision && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Eye className="w-5 h-5 text-blue-600" />
-                  <h4 className="font-bold text-slate-900">Visi</h4>
+              <div className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 rounded-xl bg-indigo-50">
+                    <Sparkles className="w-6 h-6 text-indigo-600" />
+                  </div>
+                  <h4 className="font-black text-slate-900 text-2xl">Visi</h4>
                 </div>
-                <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                  <p className="text-sm text-slate-600 italic text-center">
+                <div className="bg-gradient-to-br from-indigo-50 via-violet-50 to-purple-50 rounded-3xl p-8 border-2 border-indigo-100">
+                  <p className="text-lg text-slate-700 italic text-center font-medium leading-relaxed">
                     &quot;{selectedCandidate.vision}&quot;
                   </p>
                 </div>
               </div>
             )}
 
-            {selectedCandidate?.mission && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Target className="w-5 h-5 text-blue-600" />
-                  <h4 className="font-bold text-slate-900">Misi (Program Kerja)</h4>
+            {selectedCandidate?.missions && selectedCandidate.missions.length > 0 && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 rounded-xl bg-emerald-50">
+                    <Briefcase className="w-6 h-6 text-emerald-600" />
+                  </div>
+                  <h4 className="font-black text-slate-900 text-2xl">Misi (Program Kerja)</h4>
                 </div>
-                <div className="space-y-2">
-                  {selectedCandidate.mission.split("\n").filter((m: string) => m.trim()).map((m, idx) => (
+                <div className="space-y-4">
+                  {selectedCandidate.missions.map((m, idx) => (
                     <div
                       key={idx}
-                      className="flex gap-3 items-start bg-slate-50 rounded-xl p-3 border border-slate-100"
+                      className="flex gap-5 items-start bg-slate-50 rounded-2xl p-6 border-2 border-slate-100 hover:bg-white hover:shadow-xl transition-all"
                     >
-                      <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs shrink-0">
+                      <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-600 flex items-center justify-center text-white font-black text-lg shadow-xl shadow-emerald-500/30 shrink-0">
                         {idx + 1}
-                      </span>
-                      <p className="text-sm text-slate-600">{m}</p>
+                      </div>
+                      <p className="text-base text-slate-700 font-medium pt-3">{m}</p>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4 border border-green-100">
+            <div className="bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 rounded-3xl p-8 border-2 border-emerald-100">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-green-700 font-medium">TOTAL SUARA</p>
-                  <p className="text-3xl font-bold text-green-600">
+                  <p className="text-sm font-black text-emerald-700 uppercase tracking-widest mb-3">Total Suara</p>
+                  <p className="text-6xl font-black text-emerald-600">
                     {selectedCandidate?.vote_count || 0}
                   </p>
                 </div>
-                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                  <Users className="w-6 h-6 text-green-600" />
+                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-xl shadow-emerald-500/30">
+                  <Award className="w-10 h-10 text-white" />
                 </div>
               </div>
             </div>
@@ -964,27 +988,47 @@ export default function KandidatPage() {
 
       {/* Dialog Konfirmasi Hapus */}
       <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Hapus Paslon</AlertDialogTitle>
-            <AlertDialogDescription>
-              {selectedCandidate && (selectedCandidate.vote_count || 0) > 0
-                ? `⚠️ PERHATIAN: Paslon "${selectedCandidate?.chairman_name} & ${selectedCandidate?.vice_chairman_name}" sudah memiliki ${(selectedCandidate.vote_count || 0)} suara. Menghapus paslon akan MENGHAPUS SEMUA DATA SUARA terkait. Tindakan ini tidak dapat dibatalkan.`
-                : `Apakah Anda yakin ingin menghapus paslon "${selectedCandidate?.chairman_name} & ${selectedCandidate?.vice_chairman_name}"? Tindakan ini tidak dapat dibatalkan.`}
+        <AlertDialogContent className="rounded-3xl border-2 border-slate-200 shadow-2xl p-0">
+          <AlertDialogTitle className="sr-only">Hapus Paslon</AlertDialogTitle>
+          
+          <div className="p-8 border-b-2 border-slate-100">
+            <div className="flex items-center gap-5">
+              <div className="w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center border-2 border-red-100">
+                <Trash2 className="w-8 h-8 text-red-600" />
+              </div>
+              <h2 className="text-3xl font-black text-slate-900">Hapus Paslon</h2>
+            </div>
+          </div>
+          <div className="p-8">
+            <AlertDialogDescription asChild>
+              <p className="text-base text-slate-600 font-medium">
+                {selectedCandidate && (selectedCandidate.vote_count || 0) > 0 ? (
+                  <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-6">
+                    <p className="text-red-800 font-bold mb-3 text-lg">⚠️ PERHATIAN</p>
+                    <p className="text-red-700 leading-relaxed">
+                      Paslon "{selectedCandidate?.chairman_name} & {selectedCandidate?.vice_chairman_name}" sudah memiliki <strong>{selectedCandidate.vote_count} suara</strong>. Menghapus paslon akan <strong>MENGHAPUS SEMUA DATA SUARA</strong> terkait. Tindakan ini tidak dapat dibatalkan.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-lg">
+                    Apakah Anda yakin ingin menghapus paslon "{selectedCandidate?.chairman_name} & {selectedCandidate?.vice_chairman_name}"? Tindakan ini tidak dapat dibatalkan.
+                  </p>
+                )}
+              </p>
             </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setSelectedCandidate(null)}>
+          </div>
+          <div className="p-8 pt-0 flex justify-end gap-4">
+            <AlertDialogCancel className="px-8 py-5 rounded-2xl font-bold border-2 border-slate-200 hover:bg-slate-50 text-lg">
               Batal
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               disabled={saving}
-              className="bg-red-600 hover:bg-red-700"
+              className="px-8 py-5 bg-red-600 hover:bg-red-700 text-white rounded-2xl font-black shadow-xl shadow-red-500/30 active:scale-95 transition-all disabled:opacity-50 text-lg"
             >
               {saving ? "Menghapus..." : "Ya, Hapus"}
             </AlertDialogAction>
-          </AlertDialogFooter>
+          </div>
         </AlertDialogContent>
       </AlertDialog>
     </div>

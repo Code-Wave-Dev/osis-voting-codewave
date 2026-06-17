@@ -32,21 +32,21 @@ import {
 import jsPDF from "jspdf";
 
 interface ClassData {
-  id: number;
+  id: string;
   name: string;
 }
 
 interface Token {
-  id: number;
+  id: string;
   pin: string;
-  class_id: number;
+  class_id: string;
   is_used: boolean;
   created_at: string;
   used_at: string | null;
 }
 
 interface ClassStats {
-  class_id: number;
+  class_id: string;
   class_name: string;
   total: number;
   unused: number;
@@ -62,7 +62,7 @@ export default function PemilihPage() {
 
   const [isGenerateOpen, setIsGenerateOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [selectedClass, setSelectedClass] = useState<number | null>(null);
+  const [selectedClass, setSelectedClass] = useState<string>("");
   const [pinCount, setPinCount] = useState("");
   const [previewTokens, setPreviewTokens] = useState<Token[]>([]);
   const [previewClassName, setPreviewClassName] = useState("");
@@ -113,7 +113,7 @@ export default function PemilihPage() {
 
     setGenerating(true);
     const count = parseInt(pinCount);
-    const tokensToInsert: Array<{ pin: string; class_id: number; is_used: boolean }> = [];
+    const tokensToInsert: Array<{ pin: string; class_id: string; is_used: boolean; }> = [];
     const existingPins = tokens.map(t => t.pin);
 
     for (let i = 0; i < count; i++) {
@@ -134,7 +134,7 @@ export default function PemilihPage() {
       await fetchData();
       setIsGenerateOpen(false);
       setPinCount("");
-      setSelectedClass(null);
+      setSelectedClass("");
 
       const { data: freshTokens } = await supabase
         .from("tokens")
@@ -155,7 +155,7 @@ export default function PemilihPage() {
     setGenerating(false);
   }
 
-  async function handleViewPins(classId: number) {
+  async function handleViewPins(classId: string) {
     const { data, error } = await supabase
       .from("tokens")
       .select("*")
@@ -409,10 +409,10 @@ export default function PemilihPage() {
               <label className="text-sm font-semibold text-slate-700 uppercase tracking-wide">
                 Target Kelas
               </label>
-              <Select
-                value={selectedClass?.toString()}
-                onValueChange={(val) => setSelectedClass(parseInt(val))}
-              >
+<Select
+  value={selectedClass}
+  onValueChange={(val) => setSelectedClass(val)}
+>
                 <SelectTrigger>
                   <SelectValue placeholder="Pilih Kelas..." />
                 </SelectTrigger>

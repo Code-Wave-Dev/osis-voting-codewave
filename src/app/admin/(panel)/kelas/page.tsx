@@ -35,8 +35,9 @@ import {
 } from "lucide-react";
 
 interface ClassData {
-  id: number;
+  id: string;
   name: string;
+  grade: number;
   created_at: string;
   token_count?: number;
   used_count?: number;
@@ -53,6 +54,7 @@ export default function KelasPage() {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedClass, setSelectedClass] = useState<ClassData | null>(null);
   const [className, setClassName] = useState("");
+  const [grade, setGrade] = useState("10");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -95,15 +97,6 @@ export default function KelasPage() {
     setLoading(false);
   }
 
-  // Deteksi tingkat dari nama kelas
-  function detectLevel(className: string): string {
-    const upper = className.toUpperCase();
-    if (upper.startsWith("XII") || upper.startsWith("12")) return "Kelas 12";
-    if (upper.startsWith("XI") || upper.startsWith("11")) return "Kelas 11";
-    if (upper.startsWith("X") || upper.startsWith("10")) return "Kelas 10";
-    return "Lainnya";
-  }
-
   // Format tanggal ke bahasa Indonesia
   function formatDate(dateString: string): string {
     const date = new Date(dateString);
@@ -115,52 +108,59 @@ export default function KelasPage() {
   }
 
   async function handleAdd() {
-    if (!className.trim()) {
-      alert("Nama kelas tidak boleh kosong!");
-      return;
-    }
-
-    setSaving(true);
-
-    const { error } = await supabase.from("classes").insert([
-      { name: className.trim().toUpperCase() },
-    ]);
-
-    if (!error) {
-      await fetchClasses();
-      setIsAddOpen(false);
-      setClassName("");
-    } else {
-      alert("Gagal menambah kelas: " + error.message);
-    }
-
-    setSaving(false);
+  if (!className.trim()) {
+    alert("Nama kelas tidak boleh kosong!");
+    return;
   }
 
+  setSaving(true);
+
+  const { error } = await supabase.from("classes").insert([
+    {
+      name: className.trim().toUpperCase(),
+      grade: Number(grade),
+    },
+  ]);
+
+  if (!error) {
+    await fetchClasses();
+    setIsAddOpen(false);
+    setClassName("");
+    setGrade("10");
+  } else {
+    alert("Gagal menambah kelas: " + error.message);
+  }
+
+  setSaving(false);
+}
   async function handleEdit() {
-    if (!className.trim() || !selectedClass) {
-      alert("Nama kelas tidak boleh kosong!");
-      return;
-    }
-
-    setSaving(true);
-
-    const { error } = await supabase
-      .from("classes")
-      .update({ name: className.trim().toUpperCase() })
-      .eq("id", selectedClass.id);
-
-    if (!error) {
-      await fetchClasses();
-      setIsEditOpen(false);
-      setClassName("");
-      setSelectedClass(null);
-    } else {
-      alert("Gagal mengedit kelas: " + error.message);
-    }
-
-    setSaving(false);
+  if (!className.trim() || !selectedClass) {
+    alert("Nama kelas tidak boleh kosong!");
+    return;
   }
+
+  setSaving(true);
+
+  const { error } = await supabase
+    .from("classes")
+    .update({
+      name: className.trim().toUpperCase(),
+      grade: Number(grade),
+    })
+    .eq("id", selectedClass.id);
+
+  if (!error) {
+    await fetchClasses();
+    setIsEditOpen(false);
+    setClassName("");
+    setGrade("10");
+    setSelectedClass(null);
+  } else {
+    alert("Gagal mengedit kelas: " + error.message);
+  }
+
+  setSaving(false);
+}
 
   async function handleDelete() {
     if (!selectedClass) return;
@@ -200,11 +200,12 @@ export default function KelasPage() {
     setSaving(false);
   }
 
-  const openEdit = (cls: ClassData) => {
-    setSelectedClass(cls);
-    setClassName(cls.name);
-    setIsEditOpen(true);
-  };
+const openEdit = (cls: ClassData) => {
+  setSelectedClass(cls);
+  setClassName(cls.name);
+  setGrade(String(cls.grade));
+  setIsEditOpen(true);
+};
 
   const openDelete = (cls: ClassData) => {
     setSelectedClass(cls);
@@ -299,7 +300,7 @@ export default function KelasPage() {
                         </span>
                       </td>
                       <td className="py-4 px-4 text-slate-600 text-sm">
-                        {detectLevel(cls.name)}
+                        Kelas {cls.grade}
                       </td>
                       <td className="py-4 px-4">
                         <div className="flex items-center gap-2 text-slate-600 text-sm">
@@ -360,6 +361,21 @@ export default function KelasPage() {
           </DialogHeader>
           <div className="space-y-4 pt-4">
             <div className="space-y-2">
+              <div className="space-y-2">
+  <label className="text-sm font-semibold text-slate-700">
+    Tingkat
+  </label>
+
+  <select
+    value={grade}
+    onChange={(e) => setGrade(e.target.value)}
+    className="w-full h-10 rounded-md border border-slate-300 px-3"
+  >
+    <option value="10">Kelas 10</option>
+    <option value="11">Kelas 11</option>
+    <option value="12">Kelas 12</option>
+  </select>
+</div>
               <label className="text-sm font-semibold text-slate-700">
                 Nama Kelas
               </label>
@@ -369,9 +385,6 @@ export default function KelasPage() {
                 onChange={(e) => setClassName(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleAdd()}
               />
-              <p className="text-xs text-slate-500">
-                Tingkat akan terdeteksi otomatis (X = Kelas 10, XI = Kelas 11, XII = Kelas 12)
-              </p>
             </div>
             <div className="flex justify-end gap-2 pt-4">
               <Button
